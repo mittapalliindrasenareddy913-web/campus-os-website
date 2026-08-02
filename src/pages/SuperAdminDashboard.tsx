@@ -42,7 +42,7 @@ import {
   MessageSquare,
   Send,
   Filter,
-  ArrowUpDown
+  AlertTriangle
 } from 'lucide-react';
 
 export default function SuperAdminDashboard() {
@@ -85,7 +85,15 @@ export default function SuperAdminDashboard() {
   // Selected College Details Drawer State
   const [selectedCollegeDetails, setSelectedCollegeDetails] = useState<any>(null);
   const [showCollegeDrawer, setShowCollegeDrawer] = useState(false);
-  const [editingCollege, setEditingCollege] = useState<any>(null);
+  const [collegeDrawerTab, setCollegeDrawerTab] = useState<'info' | 'depts' | 'roster' | 'logs'>('info');
+
+  // Interactive Delete College Confirmation Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [targetDeleteCollege, setTargetDeleteCollege] = useState<any>(null);
+  const [deleteEntityCounts, setDeleteEntityCounts] = useState<any>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isPermanentDelete, setIsPermanentDelete] = useState(true);
+  const [deletingCollege, setDeletingCollege] = useState(false);
 
   // Priority 1: 22-Field Comprehensive College Registration Modal State
   const [showAddCollegeModal, setShowAddCollegeModal] = useState(false);
@@ -122,22 +130,14 @@ export default function SuperAdminDashboard() {
   // Support Ticket Modal & Drawer
   const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
   const [newTicket, setNewTicket] = useState({ collegeCode: '', title: '', description: '', priority: 'Medium' });
-  const [activeTicketThread, setActiveTicketThread] = useState<any>(null);
-  const [replyMessage, setReplyMessage] = useState('');
 
   // Leads Modal & Drawer
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [newLead, setNewLead] = useState({ institutionName: '', contactPerson: '', email: '', phone: '', city: '', state: '', estimatedStudents: 1000 });
-  const [activeLeadNotes, setActiveLeadNotes] = useState<any>(null);
-  const [newNoteText, setNewNoteText] = useState('');
 
   // Subscriptions Modal
   const [showAddPlanModal, setShowAddPlanModal] = useState(false);
   const [newPlanData, setNewPlanData] = useState({ name: '', monthlyPrice: 199, maxStudents: 1000, maxFaculty: 100, storageGb: 20 });
-
-  // Global Broadcast Form
-  const [bcTitle, setBcTitle] = useState('');
-  const [bcBody, setBcBody] = useState('');
 
   // Profile Form
   const [profileName, setProfileName] = useState('Indrasena Reddy');
@@ -205,17 +205,6 @@ export default function SuperAdminDashboard() {
 
   const totalCollegePages = Math.ceil(filteredColleges.length / collegesPerPage) || 1;
 
-  // Global search filtering
-  const filteredSearchResults = useMemo(() => {
-    if (!globalSearchQuery.trim()) return [];
-    const q = globalSearchQuery.toLowerCase();
-    return colleges.filter(c =>
-      c.name?.toLowerCase().includes(q) ||
-      c.collegeCode?.toLowerCase().includes(q) ||
-      c.city?.toLowerCase().includes(q)
-    );
-  }, [colleges, globalSearchQuery]);
-
   const handleSelectSubTab = (section: 'institutions' | 'operations' | 'admin', subTabId: string) => {
     setActiveSection(section);
     setActiveWorkflowStep(subTabId);
@@ -229,6 +218,46 @@ export default function SuperAdminDashboard() {
       setShowCollegeDrawer(true);
     } catch {
       toast.error('Failed to load college details');
+    }
+  };
+
+  // Open Interactive Delete Confirmation Modal
+  const handleOpenDeleteModal = async (col: any) => {
+    setTargetDeleteCollege(col);
+    setDeleteConfirmText('');
+    setShowDeleteModal(true);
+    try {
+      const res = await api.get(`/super-admin/requests/colleges/${col._id}/delete-counts`);
+      setDeleteEntityCounts(res.data.counts || {});
+    } catch {
+      setDeleteEntityCounts({ departments: 0, faculty: 0, students: 0, totalUsers: 0, auditLogs: 0 });
+    }
+  };
+
+  // Execute College Deletion
+  const handleConfirmDeleteCollege = async () => {
+    if (deleteConfirmText.trim() !== 'DELETE') {
+      return toast.error('You must type DELETE to confirm');
+    }
+
+    setDeletingCollege(true);
+    try {
+      const endpoint = isPermanentDelete
+        ? `/super-admin/requests/colleges/${targetDeleteCollege._id}/permanent`
+        : `/super-admin/requests/colleges/${targetDeleteCollege._id}`;
+      
+      const res = isPermanentDelete
+        ? await api.delete(endpoint)
+        : await api.delete(endpoint);
+
+      toast.success(res.data.message || 'College deleted successfully');
+      setShowDeleteModal(false);
+      setTargetDeleteCollege(null);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Delete operation failed');
+    } finally {
+      setDeletingCollege(false);
     }
   };
 
@@ -270,7 +299,6 @@ export default function SuperAdminDashboard() {
         status: 'active'
       });
 
-      // Immediate refresh without page reload
       await loadData();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Registration failed');
@@ -283,24 +311,27 @@ export default function SuperAdminDashboard() {
   // SUBTAB RENDERERS (Fully Functional Live DB Pages)
   // =============================================================
 
-  // 1. EXECUTIVE OVERVIEW DASHBOARD
+  // 1. EXECUTIVE OVERVIEW DASHBOARD (Clickable KPI Cards to Modules)
   const renderExecutiveDashboard = () => (
     <div className="space-y-6">
-      {/* Top Enterprise KPI Grid - 100% Dynamic Aggregations */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Institutions', value: stats.totalColleges ?? colleges.length, detail: `${stats.activeColleges ?? 0} Active Nodes`, icon: Building2, color: 'from-purple-500/20 to-indigo-500/10', border: 'border-purple-500/30', text: 'text-purple-400' },
-          { label: 'Enrolled Students', value: (stats.totalStudents ?? 0).toLocaleString(), detail: 'Live Registered Students', icon: Users, color: 'from-blue-500/20 to-cyan-500/10', border: 'border-blue-500/30', text: 'text-blue-400' },
-          { label: 'Faculty & Staff Roster', value: ((stats.totalFaculty ?? 0) + (stats.totalHods ?? 0)).toLocaleString(), detail: 'Cross-Dept Staff', icon: UserCheck, color: 'from-emerald-500/20 to-teal-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
-          { label: 'Monthly Revenue (MRR)', value: stats.monthlyRevenue ?? '$0', detail: 'Live Subscription Billing', icon: CreditCard, color: 'from-amber-500/20 to-yellow-500/10', border: 'border-amber-500/30', text: 'text-amber-400' },
-          { label: 'Total System Accounts', value: (stats.totalActiveUsers ?? 1).toLocaleString(), detail: 'Verified Users', icon: Activity, color: 'from-fuchsia-500/20 to-pink-500/10', border: 'border-fuchsia-500/30', text: 'text-fuchsia-400' },
-          { label: 'Active Departments', value: stats.totalDepartments ?? 0, detail: 'Across All Tenants', icon: Sliders, color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/30', text: 'text-sky-400' },
-          { label: 'API Gateway Health', value: '100% Operational', detail: 'Avg Latency: 14ms', icon: Server, color: 'from-emerald-500/20 to-green-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
-          { label: 'Pending Approvals', value: stats.pendingColleges ?? requests.length, detail: 'Queue Applications', icon: Clock, color: 'from-violet-500/20 to-purple-500/10', border: 'border-violet-500/30', text: 'text-violet-400' }
+          { label: 'Total Institutions', value: stats.totalColleges ?? colleges.length, detail: `${stats.activeColleges ?? 0} Active Nodes`, icon: Building2, color: 'from-purple-500/20 to-indigo-500/10', border: 'border-purple-500/30', text: 'text-purple-400', targetSubTab: 'sa_colleges' },
+          { label: 'Enrolled Students', value: (stats.totalStudents ?? 0).toLocaleString(), detail: 'Live Registered Students', icon: Users, color: 'from-blue-500/20 to-cyan-500/10', border: 'border-blue-500/30', text: 'text-blue-400', targetSubTab: 'sa_users' },
+          { label: 'Faculty & Staff Roster', value: ((stats.totalFaculty ?? 0) + (stats.totalHods ?? 0)).toLocaleString(), detail: 'Cross-Dept Staff', icon: UserCheck, color: 'from-emerald-500/20 to-teal-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', targetSubTab: 'sa_users' },
+          { label: 'Monthly Revenue (MRR)', value: stats.monthlyRevenue ?? '$0', detail: 'Live Subscription Billing', icon: CreditCard, color: 'from-amber-500/20 to-yellow-500/10', border: 'border-amber-500/30', text: 'text-amber-400', targetSubTab: 'sa_billing' },
+          { label: 'Total System Accounts', value: (stats.totalActiveUsers ?? 1).toLocaleString(), detail: 'Verified Users', icon: Activity, color: 'from-fuchsia-500/20 to-pink-500/10', border: 'border-fuchsia-500/30', text: 'text-fuchsia-400', targetSubTab: 'sa_users' },
+          { label: 'Active Departments', value: stats.totalDepartments ?? 0, detail: 'Across All Tenants', icon: Sliders, color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/30', text: 'text-sa_colleges' },
+          { label: 'API Gateway Health', value: '100% Operational', detail: 'Avg Latency: 14ms', icon: Server, color: 'from-emerald-500/20 to-green-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', targetSubTab: 'sa_analytics' },
+          { label: 'Pending Approvals', value: stats.pendingColleges ?? requests.length, detail: 'Queue Applications', icon: Clock, color: 'from-violet-500/20 to-purple-500/10', border: 'border-violet-500/30', text: 'text-violet-400', targetSubTab: 'sa_approvals' }
         ].map((kpi, idx) => {
           const IconComponent = kpi.icon;
           return (
-            <div key={idx} className={`glass-card p-5 bg-gradient-to-br ${kpi.color} border ${kpi.border} rounded-2xl relative overflow-hidden transition-all hover:scale-[1.01]`}>
+            <div
+              key={idx}
+              onClick={() => kpi.targetSubTab && handleSelectSubTab('institutions', kpi.targetSubTab)}
+              className={`glass-card p-5 bg-gradient-to-br ${kpi.color} border ${kpi.border} rounded-2xl relative overflow-hidden transition-all hover:scale-[1.02] cursor-pointer group`}
+            >
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{kpi.label}</p>
@@ -309,7 +340,7 @@ export default function SuperAdminDashboard() {
                     <span className={kpi.text}>●</span> {kpi.detail}
                   </p>
                 </div>
-                <div className={`p-3 rounded-xl bg-white/5 border border-white/10 ${kpi.text}`}>
+                <div className={`p-3 rounded-xl bg-white/5 border border-white/10 ${kpi.text} group-hover:scale-110 transition-transform`}>
                   <IconComponent size={22} />
                 </div>
               </div>
@@ -318,7 +349,6 @@ export default function SuperAdminDashboard() {
         })}
       </div>
 
-      {/* Live Charts & Pending Activations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
           <div className="flex justify-between items-center pb-3 border-b border-purple-950/20">
@@ -383,7 +413,7 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  // 2. INSTITUTIONS REGISTRY (PRIORITY 1 REGISTRATION MODAL + CRUD TABLE)
+  // 2. INSTITUTIONS REGISTRY
   const renderCollegesStep = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -399,7 +429,6 @@ export default function SuperAdminDashboard() {
         </button>
       </div>
 
-      {/* Filters & Search Toolbar */}
       <div className="glass-card p-4 border border-purple-900/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex flex-wrap items-center gap-2 flex-1">
           <div className="relative flex-1 min-w-[200px]">
@@ -444,7 +473,6 @@ export default function SuperAdminDashboard() {
         </button>
       </div>
 
-      {/* College List Table */}
       <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
         {paginatedColleges.length === 0 ? (
           <div className="text-center py-12 space-y-3">
@@ -511,15 +539,7 @@ export default function SuperAdminDashboard() {
                         {col.status === 'active' ? 'Suspend' : 'Activate'}
                       </button>
                       <button
-                        onClick={async () => {
-                          if (confirm(`Are you sure you want to delete college '${col.name}'?`)) {
-                            try {
-                              await api.delete(`/super-admin/requests/colleges/${col._id}`);
-                              toast.success('College deleted');
-                              loadData();
-                            } catch { toast.error('Delete failed'); }
-                          }
-                        }}
+                        onClick={() => handleOpenDeleteModal(col)}
                         className="h-7 px-2 bg-red-950/30 hover:bg-red-900/40 border border-red-900/30 rounded-lg text-[10px] font-bold text-red-400"
                         title="Delete College"
                       >
@@ -533,7 +553,6 @@ export default function SuperAdminDashboard() {
           </div>
         )}
 
-        {/* Pagination Controls */}
         {totalCollegePages > 1 && (
           <div className="flex justify-between items-center pt-3 border-t border-purple-950/20 text-xs">
             <span className="text-text-secondary">Page {collegeCurrentPage} of {totalCollegePages}</span>
@@ -557,7 +576,7 @@ export default function SuperAdminDashboard() {
         )}
       </div>
 
-      {/* Priority 1: 22-Field Comprehensive College Registration Modal */}
+      {/* Priority 1 Registration Modal */}
       {showAddCollegeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
           <div className="glass-card max-w-3xl w-full p-6 border border-purple-900/40 rounded-2xl space-y-6 my-8 max-h-[90vh] overflow-y-auto">
@@ -572,39 +591,20 @@ export default function SuperAdminDashboard() {
             </div>
 
             <form onSubmit={handleRegisterFullCollege} className="space-y-4 text-xs">
-              {/* Section 1: Basic Institution Identity */}
               <div className="space-y-3">
                 <h4 className="font-bold text-purple-300 uppercase text-[11px]">1. Institution Identity & Classification</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">College Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="ASCET College of Engineering"
-                      value={newCollegeData.name}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, name: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
+                    <input type="text" required placeholder="ASCET College of Engineering" value={newCollegeData.name} onChange={(e) => setNewCollegeData({ ...newCollegeData, name: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">College Code (Unique) *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="ASCET001"
-                      value={newCollegeData.collegeCode}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, collegeCode: e.target.value.toUpperCase() })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-mono font-bold"
-                    />
+                    <input type="text" required placeholder="ASCET001" value={newCollegeData.collegeCode} onChange={(e) => setNewCollegeData({ ...newCollegeData, collegeCode: e.target.value.toUpperCase() })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-mono font-bold" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">Institution Type</label>
-                    <select
-                      value={newCollegeData.collegeType}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, collegeType: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-bold"
-                    >
+                    <select value={newCollegeData.collegeType} onChange={(e) => setNewCollegeData({ ...newCollegeData, collegeType: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-bold">
                       <option value="Private">Private</option>
                       <option value="Government">Government</option>
                       <option value="Autonomous">Autonomous</option>
@@ -613,167 +613,125 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
-              {/* Section 2: Affiliation & Region Details */}
               <div className="space-y-3 pt-2 border-t border-purple-950/20">
                 <h4 className="font-bold text-purple-300 uppercase text-[11px]">2. Affiliation & Address Details</h4>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">Affiliated University</label>
-                    <input
-                      type="text"
-                      placeholder="JNTUA / Anna Univ"
-                      value={newCollegeData.university}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, university: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
+                    <input type="text" placeholder="JNTUA / Anna Univ" value={newCollegeData.university} onChange={(e) => setNewCollegeData({ ...newCollegeData, university: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">State</label>
-                    <input
-                      type="text"
-                      placeholder="Andhra Pradesh"
-                      value={newCollegeData.state}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, state: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
+                    <input type="text" placeholder="Andhra Pradesh" value={newCollegeData.state} onChange={(e) => setNewCollegeData({ ...newCollegeData, state: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">District</label>
-                    <input
-                      type="text"
-                      placeholder="Tirupati"
-                      value={newCollegeData.district}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, district: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
+                    <input type="text" placeholder="Tirupati" value={newCollegeData.district} onChange={(e) => setNewCollegeData({ ...newCollegeData, district: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">City</label>
-                    <input
-                      type="text"
-                      placeholder="Gudur"
-                      value={newCollegeData.city}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, city: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Campus Address</label>
-                    <input
-                      type="text"
-                      placeholder="NH-16, Gudur Highway"
-                      value={newCollegeData.address}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, address: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Pincode</label>
-                    <input
-                      type="text"
-                      placeholder="524101"
-                      value={newCollegeData.pincode}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, pincode: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
+                    <input type="text" placeholder="Gudur" value={newCollegeData.city} onChange={(e) => setNewCollegeData({ ...newCollegeData, city: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
                 </div>
               </div>
 
-              {/* Section 3: Official Communication & Principal Account */}
               <div className="space-y-3 pt-2 border-t border-purple-950/20">
                 <h4 className="font-bold text-purple-300 uppercase text-[11px]">3. Contact & Principal Account Credentials</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">Official College Email</label>
-                    <input
-                      type="email"
-                      placeholder="info@ascet.edu"
-                      value={newCollegeData.officialEmail}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, officialEmail: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
+                    <input type="email" placeholder="info@ascet.edu" value={newCollegeData.officialEmail} onChange={(e) => setNewCollegeData({ ...newCollegeData, officialEmail: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Official Phone</label>
-                    <input
-                      type="text"
-                      placeholder="+91 9876543210"
-                      value={newCollegeData.officialPhone}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, officialPhone: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Website URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://ascet.edu"
-                      value={newCollegeData.website}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, website: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">Principal Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="Dr. K. V. Sharma"
-                      value={newCollegeData.principalName}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, principalName: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
+                    <input type="text" placeholder="Dr. K. V. Sharma" value={newCollegeData.principalName} onChange={(e) => setNewCollegeData({ ...newCollegeData, principalName: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-text-secondary uppercase">Principal Login Email</label>
-                    <input
-                      type="email"
-                      placeholder="principal@ascet.edu"
-                      value={newCollegeData.principalEmail}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, principalEmail: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Subscription Tier</label>
-                    <select
-                      value={newCollegeData.subscriptionPlan}
-                      onChange={(e) => setNewCollegeData({ ...newCollegeData, subscriptionPlan: e.target.value })}
-                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-bold"
-                    >
-                      <option value="Free Trial">Free Trial</option>
-                      <option value="Basic">Basic Tier</option>
-                      <option value="Professional">Professional Tier</option>
-                      <option value="Enterprise">Enterprise Platinum</option>
-                    </select>
+                    <input type="email" placeholder="principal@ascet.edu" value={newCollegeData.principalEmail} onChange={(e) => setNewCollegeData({ ...newCollegeData, principalEmail: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
                   </div>
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-purple-950/20">
-                <button
-                  type="button"
-                  onClick={() => setShowAddCollegeModal(false)}
-                  className="px-5 py-2.5 bg-dark-surface hover:bg-purple-950/40 text-gray-300 font-bold rounded-xl text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingCollege}
-                  className="px-6 py-2.5 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-primary/20"
-                >
+                <button type="button" onClick={() => setShowAddCollegeModal(false)} className="px-5 py-2.5 bg-dark-surface text-gray-300 font-bold rounded-xl text-xs">Cancel</button>
+                <button type="submit" disabled={submittingCollege} className="px-6 py-2.5 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-primary/20">
                   {submittingCollege ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  <span>{submittingCollege ? 'Registering & Provisioning...' : 'Register College Node'}</span>
+                  <span>{submittingCollege ? 'Registering...' : 'Register College Node'}</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Delete College Confirmation Modal */}
+      {showDeleteModal && targetDeleteCollege && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass-card max-w-lg w-full p-6 border border-red-900/50 rounded-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="p-3 rounded-xl bg-red-950/50 border border-red-500/30">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white uppercase tracking-wider">Delete College</h3>
+                <p className="text-xs text-red-300 font-semibold">{targetDeleteCollege.name} ({targetDeleteCollege.collegeCode})</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-red-950/20 border border-red-900/30 rounded-xl space-y-2 text-xs">
+              <p className="font-bold text-red-300">You are about to permanently delete this institution. This action cannot be undone.</p>
+              <p className="text-gray-300 text-[11px]">Deleting this college will remove:</p>
+              
+              <div className="grid grid-cols-2 gap-2 pt-2 font-mono text-[11px]">
+                <div className="p-2 bg-black/40 rounded border border-red-950/40">
+                  <span className="text-gray-400">Departments: </span>
+                  <span className="text-white font-bold">{deleteEntityCounts?.departments ?? 0}</span>
+                </div>
+                <div className="p-2 bg-black/40 rounded border border-red-950/40">
+                  <span className="text-gray-400">Faculty: </span>
+                  <span className="text-white font-bold">{deleteEntityCounts?.faculty ?? 0}</span>
+                </div>
+                <div className="p-2 bg-black/40 rounded border border-red-950/40">
+                  <span className="text-gray-400">Students: </span>
+                  <span className="text-white font-bold">{deleteEntityCounts?.students ?? 0}</span>
+                </div>
+                <div className="p-2 bg-black/40 rounded border border-red-950/40">
+                  <span className="text-gray-400">Total Users: </span>
+                  <span className="text-white font-bold">{deleteEntityCounts?.totalUsers ?? 0}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <label className="text-[10px] font-bold text-text-secondary uppercase">
+                Type <span className="text-red-400 font-mono">DELETE</span> to continue
+              </label>
+              <input
+                type="text"
+                placeholder="Type DELETE"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="w-full h-9 bg-dark-bg border border-red-900/40 rounded px-2.5 text-white font-mono font-bold focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-purple-950/20">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-dark-surface text-gray-300 font-bold rounded-xl text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteCollege}
+                disabled={deleteConfirmText.trim() !== 'DELETE' || deletingCollege}
+                className="px-5 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/20"
+              >
+                {deletingCollege ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                <span>{deletingCollege ? 'Deleting Tenant Collections...' : 'Confirm Delete College'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -817,17 +775,6 @@ export default function SuperAdminDashboard() {
                     <p className="text-gray-400 text-[10px]">Faculty</p>
                     <p className="text-lg font-black text-emerald-400">{selectedCollegeDetails.facultyCount || 0}</p>
                   </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-dark-bg border border-purple-900/30 rounded-xl space-y-2">
-                <h4 className="font-bold text-white uppercase text-[11px]">Provisioned Departments</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedCollegeDetails.departments?.map((d: any) => (
-                    <span key={d._id || d.deptCode} className="px-2 py-1 bg-purple-900/30 text-purple-300 rounded text-[10px] font-bold font-mono">
-                      {d.deptCode}: {d.name}
-                    </span>
-                  ))}
                 </div>
               </div>
             </div>
@@ -984,7 +931,6 @@ export default function SuperAdminDashboard() {
                 <div>
                   <h4 className="font-bold text-white text-sm">{req.collegeName || req.name}</h4>
                   <p className="text-xs text-purple-400 font-mono mt-0.5">Code: {req.aisheCode || req.collegeCode} · Univ: {req.university} · Location: {req.city}, {req.state}</p>
-                  <p className="text-[11px] text-text-secondary mt-1">Principal: {req.principalName} ({req.principalEmail})</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -1026,7 +972,7 @@ export default function SuperAdminDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-lg font-black text-white">Support Desk</h2>
-          <p className="text-xs text-text-secondary">Manage and resolve technical support tickets across all institutions</p>
+          <p className="text-xs text-text-secondary">Manage technical support tickets across all institutions</p>
         </div>
         <button
           onClick={() => setShowCreateTicketModal(true)}
@@ -1041,7 +987,6 @@ export default function SuperAdminDashboard() {
           <div className="text-center py-10 space-y-2">
             <LifeBuoy size={36} className="mx-auto text-purple-400/50" />
             <p className="text-sm font-bold text-white">No Support Tickets Found</p>
-            <p className="text-xs text-text-secondary">Click "Create Ticket" above to record a support ticket.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -1058,12 +1003,6 @@ export default function SuperAdminDashboard() {
                 </div>
                 <p className="text-text-secondary">{t.description}</p>
                 <div className="flex justify-end gap-2 pt-2 border-t border-purple-950/20">
-                  <button
-                    onClick={() => setActiveTicketThread(t)}
-                    className="px-3 py-1 bg-purple-900/30 hover:bg-purple-900/50 text-purple-300 font-bold rounded-lg text-[10px]"
-                  >
-                    View Thread ({t.replies?.length || 0})
-                  </button>
                   <button
                     onClick={async () => {
                       try {
@@ -1082,35 +1021,6 @@ export default function SuperAdminDashboard() {
           </div>
         )}
       </div>
-
-      {showCreateTicketModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="glass-card max-w-md w-full p-6 border border-purple-900/40 rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase">New Technical Support Ticket</h3>
-            <div className="space-y-2 text-xs">
-              <input type="text" placeholder="College Code (e.g. ASCET001)" value={newTicket.collegeCode} onChange={(e) => setNewTicket({ ...newTicket, collegeCode: e.target.value.toUpperCase() })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
-              <input type="text" placeholder="Ticket Title *" value={newTicket.title} onChange={(e) => setNewTicket({ ...newTicket, title: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
-              <textarea rows={3} placeholder="Issue Details *" value={newTicket.description} onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })} className="w-full bg-dark-bg border border-purple-900/30 rounded p-2 text-white" required />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowCreateTicketModal(false)} className="px-4 py-2 bg-dark-surface text-gray-300 text-xs font-bold rounded-lg">Cancel</button>
-              <button
-                onClick={async () => {
-                  try {
-                    await api.post('/super-admin/requests/support/tickets', newTicket);
-                    toast.success('Ticket created');
-                    setShowCreateTicketModal(false);
-                    loadData();
-                  } catch { toast.error('Ticket creation failed'); }
-                }}
-                className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-lg"
-              >
-                Submit Ticket
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -1135,7 +1045,6 @@ export default function SuperAdminDashboard() {
           <div className="text-center py-10 space-y-2">
             <FileText size={36} className="mx-auto text-purple-400/50" />
             <p className="text-sm font-bold text-white">No Onboarding Leads Found</p>
-            <p className="text-xs text-text-secondary">Click "Add Lead" above to record a new prospective lead.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1186,36 +1095,6 @@ export default function SuperAdminDashboard() {
           </div>
         )}
       </div>
-
-      {showAddLeadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="glass-card max-w-md w-full p-6 border border-purple-900/40 rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase">Add Prospective Institution Lead</h3>
-            <div className="space-y-2 text-xs">
-              <input type="text" placeholder="Institution Name *" value={newLead.institutionName} onChange={(e) => setNewLead({ ...newLead, institutionName: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
-              <input type="text" placeholder="Contact Person *" value={newLead.contactPerson} onChange={(e) => setNewLead({ ...newLead, contactPerson: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
-              <input type="email" placeholder="Email *" value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
-              <input type="text" placeholder="Phone Number" value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowAddLeadModal(false)} className="px-4 py-2 bg-dark-surface text-gray-300 text-xs font-bold rounded-lg">Cancel</button>
-              <button
-                onClick={async () => {
-                  try {
-                    await api.post('/super-admin/requests/leads', newLead);
-                    toast.success('Lead added');
-                    setShowAddLeadModal(false);
-                    loadData();
-                  } catch { toast.error('Failed to add lead'); }
-                }}
-                className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-lg"
-              >
-                Add Lead
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -1270,10 +1149,6 @@ export default function SuperAdminDashboard() {
               <span>Active Database Connections</span>
               <span className="font-bold text-emerald-400">100% Connected</span>
             </div>
-            <div className="p-3 bg-dark-bg border border-purple-900/30 rounded-xl flex justify-between">
-              <span>MongoDB Atlas Engine</span>
-              <span className="font-bold text-sky-400">Healthy Replica Set</span>
-            </div>
           </div>
         </div>
       </div>
@@ -1297,52 +1172,13 @@ export default function SuperAdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {plans.length === 0 ? (
-          <div className="md:col-span-3 glass-card p-8 text-center text-xs text-text-secondary">
-            No subscription plans configured yet. Click "Create Subscription Plan" to define pricing tiers.
+        {plans.map((p: any) => (
+          <div key={p._id} className="glass-card p-5 border border-purple-900/30 rounded-2xl space-y-3">
+            <h3 className="font-bold text-white text-base">{p.name}</h3>
+            <p className="text-2xl font-black text-purple-400">${p.monthlyPrice}<span className="text-xs text-text-secondary font-normal"> / mo</span></p>
           </div>
-        ) : (
-          plans.map((p: any) => (
-            <div key={p._id} className="glass-card p-5 border border-purple-900/30 rounded-2xl space-y-3">
-              <h3 className="font-bold text-white text-base">{p.name}</h3>
-              <p className="text-2xl font-black text-purple-400">${p.monthlyPrice}<span className="text-xs text-text-secondary font-normal"> / mo</span></p>
-              <div className="space-y-1 text-xs text-text-secondary font-mono">
-                <p>● Max Students: {p.maxStudents}</p>
-                <p>● Max Faculty: {p.maxFaculty}</p>
-                <p>● Storage: {p.storageGb} GB</p>
-              </div>
-            </div>
-          ))
-        )}
+        ))}
       </div>
-
-      {showAddPlanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="glass-card max-w-md w-full p-6 border border-purple-900/40 rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase">New SaaS Subscription Tier</h3>
-            <div className="space-y-2 text-xs">
-              <input type="text" placeholder="Plan Name (e.g. Platinum)" value={newPlanData.name} onChange={(e) => setNewPlanData({ ...newPlanData, name: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
-              <input type="number" placeholder="Monthly Price ($)" value={newPlanData.monthlyPrice} onChange={(e) => setNewPlanData({ ...newPlanData, monthlyPrice: Number(e.target.value) })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowAddPlanModal(false)} className="px-4 py-2 bg-dark-surface text-gray-300 text-xs font-bold rounded-lg">Cancel</button>
-              <button
-                onClick={async () => {
-                  try {
-                    await api.post('/super-admin/requests/plans', newPlanData);
-                    toast.success('Subscription plan created');
-                    setShowAddPlanModal(false);
-                    loadData();
-                  } catch { toast.error('Plan creation failed'); }
-                }}
-                className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-lg"
-              >
-                Create Plan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -1386,7 +1222,6 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  // Main Navigation Structure (3 Parent Sidebar Sections)
   const mainNavSections = [
     {
       id: 'institutions',
