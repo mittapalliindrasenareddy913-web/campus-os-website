@@ -42,29 +42,12 @@ export default function CampusLogin() {
 
   const isSuperAdmin = 
     portalType === 'super-admin' || 
-    portalType === 'admin' ||
-    emailOrEmpId.trim().toLowerCase() === 'indra0408' ||
-    emailOrEmpId.trim().toLowerCase() === 'mittapalliindrasenareddy913@gmail.com' ||
-    emailOrEmpId.trim().toLowerCase() === 'superadmin';
+    (emailOrEmpId.trim().toLowerCase() === 'indra0408' && portalType !== 'principal');
 
   useEffect(() => {
     if (portalType === 'super-admin') {
       setEmailOrEmpId('indra0408');
       setPassword('ISR@MB@d');
-    } else if (portalType === 'hod') {
-      setCollegeCode('ASCET001');
-      setEmailOrEmpId('hod@college.edu');
-      setPassword('ASCET001');
-    } else if (portalType === 'faculty') {
-      setCollegeCode('ASCET001');
-      setEmailOrEmpId('faculty@college.edu');
-      setPassword('ASCET001');
-    } else if (portalType === 'principal') {
-      setCollegeCode('ASCET001');
-      setEmailOrEmpId('principal');
-      setPassword('ASCET001');
-    } else {
-      setCollegeCode('ASCET001');
     }
   }, [portalType]);
 
