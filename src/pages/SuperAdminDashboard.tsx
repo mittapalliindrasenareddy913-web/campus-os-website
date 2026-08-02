@@ -137,7 +137,7 @@ export default function SuperAdminDashboard() {
   const [bcTargetCollege, setBcTargetCollege] = useState('all');
 
   // Integrations Form
-  const [firebaseKey, setFirebaseKey] = useState('AIzaSyB_MASKED_FIREBASE_SERVER_KEY_2026');
+  const [firebaseKey, setFirebaseKey] = useState('FIREBASE_SERVER_KEY_CONFIGURED');
   const [smsKey, setSmsKey] = useState('SK_TWILIO_SMS_GATEWAY_KEY_MASKED');
   const [emailKey, setEmailKey] = useState('re_RESEND_EMAIL_API_KEY_MASKED');
 
