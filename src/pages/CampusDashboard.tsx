@@ -1705,10 +1705,9 @@ export default function CampusDashboard() {
     { id: 'hods', name: 'Step 2: HOD Management' },
     { id: 'faculty', name: 'Step 3: Faculty Management' },
     { id: 'students', name: 'Step 4: Student Master Data' },
-    { id: 'academics', name: 'Step 5: Academic Management' },
-    { id: 'administration', name: 'Step 6: Administration Setup' },
-    { id: 'communications', name: 'Step 7: Communication Center' },
-    { id: 'analytics', name: 'Step 8: Reports & Analytics' },
+    { id: 'administration', name: 'Step 5: Administration Setup' },
+    { id: 'communications', name: 'Step 6: Communication Center' },
+    { id: 'analytics', name: 'Step 7: Reports & Analytics' },
     { id: 'erp_import', name: '📥 ERP Import' }
   ];
 
@@ -10649,7 +10648,6 @@ export default function CampusDashboard() {
                  {activeWorkflowStep === 'hods' && renderHodsStep()}
                  {activeWorkflowStep === 'faculty' && renderFacultyStep()}
                  {activeWorkflowStep === 'students' && renderStudentsStep()}
-                 {activeWorkflowStep === 'academics' && renderAcademicsStep()}
                  {activeWorkflowStep === 'administration' && renderAdministrationStep()}
                  {activeWorkflowStep === 'communications' && renderCommunicationsStep()}
                  {activeWorkflowStep === 'analytics' && renderAnalyticsStep()}
