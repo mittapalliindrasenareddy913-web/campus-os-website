@@ -10,8 +10,7 @@ const STORAGE_REFRESH_KEY = 'campus_web_refresh_token';
 // ── Create base Axios instance ────────────────────────────────
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
 });
 
 // ── Request interceptor: inject JWT ──────────────────────────

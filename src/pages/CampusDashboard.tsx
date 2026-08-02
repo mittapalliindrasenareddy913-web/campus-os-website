@@ -2893,65 +2893,25 @@ export default function CampusDashboard() {
       try {
         setErpFile(file);
 
-        // 1. Client-side Reader using FileReader (Instant & 100% Reliable for CSV/text)
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          try {
-            const content = e.target?.result as string;
-            if (content && typeof content === 'string' && (file.name.toLowerCase().endsWith('.csv') || content.includes(','))) {
-              const lines = content.split(/\r\n|\n/).filter(l => l.trim() !== '');
-              if (lines.length > 0) {
-                const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-                const records: any[] = [];
-                for (let i = 1; i < lines.length; i++) {
-                  const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-                  if (values.some(v => v.trim() !== '')) {
-                    const rowObj: any = {};
-                    headers.forEach((h, idx) => {
-                      rowObj[h] = values[idx] || '';
-                    });
-                    records.push(rowObj);
-                  }
-                }
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const parseRes = await api.post('/erp/import/parse', formData, {
+          headers: { 'Content-Type': undefined }
+        });
 
-                if (records.length > 0) {
-                  setErpPreviewHeaders(headers);
-                  setErpPreviewData(records);
-                  setErpImportStep(4);
-                  toastSuccess(`Parsed ${records.length} records successfully!`);
-                  setLoading(false);
-                  return;
-                }
-              }
-            }
-          } catch (cErr) {
-            console.warn('Text reader parse skipped:', cErr);
-          }
+        if (!parseRes.data?.records || parseRes.data.records.length === 0) {
+          toastError('The uploaded file contains no data rows.');
+          return;
+        }
 
-          // 2. Server API Parsing for Excel / Binary files
-          try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const parseRes = await api.post('/erp/import/parse', formData);
-
-            if (parseRes.data?.records && parseRes.data.records.length > 0) {
-              setErpPreviewHeaders(parseRes.data.headers || Object.keys(parseRes.data.records[0]));
-              setErpPreviewData(parseRes.data.records);
-              setErpImportStep(4);
-              toastSuccess(`Parsed ${parseRes.data.records.length} records successfully!`);
-              return;
-            }
-            toastError(parseRes.data?.message || 'Uploaded file contains no data rows.');
-          } catch (err: any) {
-            toastError(err.response?.data?.message || err.message || 'Failed parsing file.');
-          } finally {
-            setLoading(false);
-          }
-        };
-
-        reader.readAsText(file);
+        setErpPreviewHeaders(parseRes.data.headers || Object.keys(parseRes.data.records[0]));
+        setErpPreviewData(parseRes.data.records);
+        setErpImportStep(4);
+        toastSuccess(`Parsed ${parseRes.data.records.length} records successfully!`);
       } catch (err: any) {
-        toastError(err.message || 'Failed parsing file.');
+        toastError(err.response?.data?.message || err.message || 'Failed parsing file.');
+      } finally {
         setLoading(false);
       }
     };
