@@ -2891,72 +2891,24 @@ export default function CampusDashboard() {
     const handleFileUpload = async (file: File) => {
       setLoading(true);
       try {
-        // 1. Try server API parsing first
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-          const parseRes = await api.post('/erp/import/parse', formData);
-          if (parseRes.data && parseRes.data.records && parseRes.data.records.length > 0) {
-            setErpFile(file);
-            setErpPreviewHeaders(parseRes.data.headers || Object.keys(parseRes.data.records[0]));
-            setErpPreviewData(parseRes.data.records);
-            setErpImportStep(4);
-            toastSuccess('File parsed successfully!');
-            setLoading(false);
-            return;
-          }
-        } catch (apiErr) {
-          console.warn('API parsing fallback to client reader:', apiErr);
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const parseRes = await api.post('/erp/import/parse', formData);
+
+        if (!parseRes.data?.records || parseRes.data.records.length === 0) {
+          toastError('The uploaded file contains no data rows.');
+          return;
         }
 
-        // 2. Client-side Reader Fallback (Guarantees parsing even if server fails)
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          try {
-            const content = e.target?.result;
-            let records: any[] = [];
-
-            if (file.name.toLowerCase().endsWith('.csv') || typeof content === 'string') {
-              const text = content as string;
-              const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
-              if (lines.length > 0) {
-                const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-                for (let i = 1; i < lines.length; i++) {
-                  const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-                  const rowObj: any = {};
-                  headers.forEach((h, idx) => {
-                    rowObj[h] = values[idx] || '';
-                  });
-                  records.push(rowObj);
-                }
-              }
-            }
-
-            if (!records || records.length === 0) {
-              toastError('Uploaded file contains no valid data rows.');
-              return;
-            }
-
-            const headers = Object.keys(records[0]);
-            setErpFile(file);
-            setErpPreviewHeaders(headers);
-            setErpPreviewData(records);
-            setErpImportStep(4);
-            toastSuccess('File parsed successfully!');
-          } catch (parseErr: any) {
-            toastError('Failed parsing file: ' + parseErr.message);
-          } finally {
-            setLoading(false);
-          }
-        };
-
-        if (file.name.toLowerCase().endsWith('.csv')) {
-          reader.readAsText(file);
-        } else {
-          reader.readAsArrayBuffer(file);
-        }
+        setErpFile(file);
+        setErpPreviewHeaders(parseRes.data.headers || Object.keys(parseRes.data.records[0]));
+        setErpPreviewData(parseRes.data.records);
+        setErpImportStep(4);
+        toastSuccess(`Parsed ${parseRes.data.records.length} records successfully!`);
       } catch (err: any) {
-        toastError(err.message || 'Failed parsing file.');
+        toastError(err.response?.data?.message || err.message || 'Failed parsing file.');
+      } finally {
         setLoading(false);
       }
     };
