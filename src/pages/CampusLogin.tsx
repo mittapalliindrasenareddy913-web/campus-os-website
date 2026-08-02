@@ -40,9 +40,7 @@ export default function CampusLogin() {
     return 'e.g. ECEFAC023 / ECEHOD001';
   };
 
-  const isSuperAdmin = 
-    portalType === 'super-admin' || 
-    (emailOrEmpId.trim().toLowerCase() === 'indra0408' && portalType !== 'principal');
+  const isSuperAdmin = portalType === 'super-admin';
 
   useEffect(() => {
     if (portalType === 'super-admin') {
