@@ -2958,6 +2958,21 @@ export default function CampusDashboard() {
           setErpImportStep(7);
           setErpIsProcessing(false);
           toastSuccess('Dry run simulation completed successfully!');
+        } else if (res.data?.summary) {
+          setErpSummary({
+            status: 'completed',
+            successCount: res.data.summary.success,
+            failedCount: res.data.summary.failed,
+            skippedCount: res.data.summary.skipped,
+            duplicatesCount: res.data.summary.duplicates || 0,
+            warningsCount: res.data.summary.warnings || 0,
+            totalRecords: res.data.summary.total,
+            requestId: res.data.requestId
+          });
+          setErpImportStep(7);
+          setErpIsProcessing(false);
+          toastSuccess('Import completed successfully!');
+          loadData();
         } else {
           setErpImportStep(6);
           toastInfo('Import task started in background. Monitoring progress...');
