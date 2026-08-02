@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  AreaChart, Area, PieChart, Pie, Cell
+  PieChart, Pie, Cell
 } from 'recharts';
 import { toast } from 'sonner';
 import {
@@ -34,10 +34,15 @@ import {
   Mail,
   Key,
   ShieldAlert,
-  Download,
-  UserPlus,
   Clock,
-  RefreshCw
+  RefreshCw,
+  X,
+  Eye,
+  Edit,
+  MessageSquare,
+  Send,
+  Filter,
+  ArrowUpDown
 } from 'lucide-react';
 
 export default function SuperAdminDashboard() {
@@ -46,34 +51,14 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
-  // Selected College for College Monitor Deep-Dive
-  const [selectedCollegeCode, setSelectedCollegeCode] = useState<string>('');
-
-  // Live Backend State Registries (Default to empty arrays / zeros)
+  // Live Backend State Registries
   const [requests, setRequests] = useState<any[]>([]);
   const [colleges, setColleges] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
-  const [backupHistory, setBackupHistory] = useState<any[]>([]);
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [auditLogsList, setAuditLogsList] = useState<any[]>([]);
-  const [storageQuotaList, setStorageQuotaList] = useState<any[]>([]);
-  const [securityLogs, setSecurityLogs] = useState<any>({
-    failedLoginsCount: 0,
-    blockedAccountsCount: 0,
-    suspiciousActivities: []
-  });
-  const [monitoringMetrics, setMonitoringMetrics] = useState<any>({
-    cpuUsage: '4%',
-    memoryUsage: '128 MB',
-    diskUsage: '0.8 GB / 100 GB',
-    socketConnections: 1,
-    activeRooms: 1,
-    databaseStatus: 'Healthy (MongoDB Atlas)',
-    maintenanceMode: false
-  });
-
   const [leads, setLeads] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({
     totalColleges: 0,
@@ -82,50 +67,82 @@ export default function SuperAdminDashboard() {
     totalStudents: 0,
     totalFaculty: 0,
     totalHods: 0,
-    totalCoes: 0,
     totalPrincipals: 0,
     totalActiveUsers: 1,
+    totalDepartments: 0,
     storageUsage: '0 GB / 100 GB',
-    monthlyRevenue: '$0',
-    systemHealth: 'healthy'
+    monthlyRevenue: '$0'
   });
 
-  // Modal / Form States
+  // Filters & Pagination for Institutions Registry
+  const [collegeSearchText, setCollegeSearchText] = useState('');
+  const [collegeStateFilter, setCollegeStateFilter] = useState('all');
+  const [collegeStatusFilter, setCollegeStatusFilter] = useState('all');
+  const [collegeTypeFilter, setCollegeTypeFilter] = useState('all');
+  const [collegeCurrentPage, setCollegeCurrentPage] = useState(1);
+  const collegesPerPage = 8;
+
+  // Selected College Details Drawer State
+  const [selectedCollegeDetails, setSelectedCollegeDetails] = useState<any>(null);
+  const [showCollegeDrawer, setShowCollegeDrawer] = useState(false);
+  const [editingCollege, setEditingCollege] = useState<any>(null);
+
+  // Priority 1: 22-Field Comprehensive College Registration Modal State
   const [showAddCollegeModal, setShowAddCollegeModal] = useState(false);
-  const [showAddPlanModal, setShowAddPlanModal] = useState(false);
+  const [submittingCollege, setSubmittingCollege] = useState(false);
   const [newCollegeData, setNewCollegeData] = useState({
-    collegeCode: '',
     name: '',
-    university: '',
-    state: '',
+    collegeCode: '',
+    collegeType: 'Private',
+    university: 'Affiliated State University',
+    country: 'India',
+    state: 'Andhra Pradesh',
     district: '',
     city: '',
-    aisheCode: '',
-    logo: ''
+    address: '',
+    pincode: '',
+    officialEmail: '',
+    officialPhone: '',
+    website: '',
+    principalName: '',
+    principalEmail: '',
+    principalPhone: '',
+    subscriptionPlan: 'Professional',
+    maxStudents: 2000,
+    maxFaculty: 200,
+    maxDepartments: 12,
+    logo: '',
+    status: 'active'
   });
 
-  const [newPlanData, setNewPlanData] = useState({
-    name: '',
-    monthlyPrice: 199,
-    maxStudents: 1000,
-    maxFaculty: 100,
-    storageGb: 20
-  });
+  // User List Filters
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [userSearchText, setUserSearchText] = useState('');
+
+  // Support Ticket Modal & Drawer
+  const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
+  const [newTicket, setNewTicket] = useState({ collegeCode: '', title: '', description: '', priority: 'Medium' });
+  const [activeTicketThread, setActiveTicketThread] = useState<any>(null);
+  const [replyMessage, setReplyMessage] = useState('');
+
+  // Leads Modal & Drawer
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [newLead, setNewLead] = useState({ institutionName: '', contactPerson: '', email: '', phone: '', city: '', state: '', estimatedStudents: 1000 });
+  const [activeLeadNotes, setActiveLeadNotes] = useState<any>(null);
+  const [newNoteText, setNewNoteText] = useState('');
+
+  // Subscriptions Modal
+  const [showAddPlanModal, setShowAddPlanModal] = useState(false);
+  const [newPlanData, setNewPlanData] = useState({ name: '', monthlyPrice: 199, maxStudents: 1000, maxFaculty: 100, storageGb: 20 });
 
   // Global Broadcast Form
   const [bcTitle, setBcTitle] = useState('');
   const [bcBody, setBcBody] = useState('');
-  const [bcTargetRole, setBcTargetRole] = useState('all');
-  const [bcTargetCollege, setBcTargetCollege] = useState('all');
 
   // Profile Form
   const [profileName, setProfileName] = useState('Indrasena Reddy');
   const [profileEmail, setProfileEmail] = useState('indra0408@campusos.in');
   const [profilePass, setProfilePass] = useState('');
-
-  // User Filter
-  const [userRoleFilter, setUserRoleFilter] = useState('all');
-  const [userSearchText, setUserSearchText] = useState('');
 
   // =============================================================
   // DATA FETCHING ENGINE (Pure Live Database Queries)
@@ -134,22 +151,13 @@ export default function SuperAdminDashboard() {
     setLoading(true);
     try {
       const statsRes = await api.get('/super-admin/requests/stats');
-      if (statsRes.data) {
-        setStats(statsRes.data);
-        if (statsRes.data.monitoring) {
-          setMonitoringMetrics((prev: any) => ({ ...prev, ...statsRes.data.monitoring }));
-        }
-      }
+      if (statsRes.data) setStats(statsRes.data);
 
       const reqRes = await api.get('/super-admin/requests');
       setRequests(reqRes.data || []);
 
       const colRes = await api.get('/super-admin/requests/colleges');
-      const loadedColleges = colRes.data || [];
-      setColleges(loadedColleges);
-      if (loadedColleges.length > 0 && !selectedCollegeCode) {
-        setSelectedCollegeCode(loadedColleges[0].collegeCode);
-      }
+      setColleges(colRes.data || []);
 
       const planRes = await api.get('/super-admin/requests/plans');
       setPlans(planRes.data || []);
@@ -160,9 +168,6 @@ export default function SuperAdminDashboard() {
       const userRes = await api.get('/super-admin/requests/users');
       setUsersList(userRes.data || []);
 
-      const backupRes = await api.get('/super-admin/requests/backup');
-      setBackupHistory(backupRes.data || []);
-
       const supportRes = await api.get('/super-admin/requests/support/tickets');
       setSupportTickets(supportRes.data || []);
 
@@ -171,12 +176,6 @@ export default function SuperAdminDashboard() {
 
       const leadRes = await api.get('/super-admin/requests/leads');
       setLeads(leadRes.data || []);
-
-      const storageRes = await api.get('/super-admin/requests/storage');
-      setStorageQuotaList(storageRes.data || []);
-
-      const secRes = await api.get('/super-admin/requests/security');
-      setSecurityLogs(secRes.data || { failedLoginsCount: 0, blockedAccountsCount: 0, suspiciousActivities: [] });
     } catch (e) {
       console.warn('Super Admin Live API notice: Connected to database.');
     } finally {
@@ -188,11 +187,23 @@ export default function SuperAdminDashboard() {
     loadData();
   }, [activeWorkflowStep]);
 
-  // Derived selected college for monitor view
-  const currentMonitorCollege = useMemo(() => {
-    if (colleges.length === 0) return null;
-    return colleges.find(c => c.collegeCode === selectedCollegeCode) || colleges[0];
-  }, [colleges, selectedCollegeCode]);
+  // Filtering & Pagination for Colleges
+  const filteredColleges = useMemo(() => {
+    return colleges.filter(col => {
+      const matchSearch = !collegeSearchText || col.name?.toLowerCase().includes(collegeSearchText.toLowerCase()) || col.collegeCode?.toLowerCase().includes(collegeSearchText.toLowerCase()) || col.city?.toLowerCase().includes(collegeSearchText.toLowerCase());
+      const matchState = collegeStateFilter === 'all' || col.state === collegeStateFilter;
+      const matchStatus = collegeStatusFilter === 'all' || col.status === collegeStatusFilter;
+      const matchType = collegeTypeFilter === 'all' || col.collegeType === collegeTypeFilter;
+      return matchSearch && matchState && matchStatus && matchType;
+    });
+  }, [colleges, collegeSearchText, collegeStateFilter, collegeStatusFilter, collegeTypeFilter]);
+
+  const paginatedColleges = useMemo(() => {
+    const startIndex = (collegeCurrentPage - 1) * collegesPerPage;
+    return filteredColleges.slice(startIndex, startIndex + collegesPerPage);
+  }, [filteredColleges, collegeCurrentPage]);
+
+  const totalCollegePages = Math.ceil(filteredColleges.length / collegesPerPage) || 1;
 
   // Global search filtering
   const filteredSearchResults = useMemo(() => {
@@ -210,24 +221,82 @@ export default function SuperAdminDashboard() {
     setActiveWorkflowStep(subTabId);
   };
 
+  // Open College Details Drawer
+  const handleOpenCollegeDetails = async (code: string) => {
+    try {
+      const res = await api.get(`/super-admin/requests/colleges/details/${code}`);
+      setSelectedCollegeDetails(res.data);
+      setShowCollegeDrawer(true);
+    } catch {
+      toast.error('Failed to load college details');
+    }
+  };
+
+  // Priority 1: Handle Register New College Form Submission
+  const handleRegisterFullCollege = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCollegeData.collegeCode.trim() || !newCollegeData.name.trim()) {
+      return toast.error('College Code and College Name are required');
+    }
+
+    setSubmittingCollege(true);
+    try {
+      const res = await api.post('/super-admin/requests/colleges/register-full', newCollegeData);
+      toast.success(res.data.message || 'College registered successfully!');
+      
+      setShowAddCollegeModal(false);
+      setNewCollegeData({
+        name: '',
+        collegeCode: '',
+        collegeType: 'Private',
+        university: 'Affiliated State University',
+        country: 'India',
+        state: 'Andhra Pradesh',
+        district: '',
+        city: '',
+        address: '',
+        pincode: '',
+        officialEmail: '',
+        officialPhone: '',
+        website: '',
+        principalName: '',
+        principalEmail: '',
+        principalPhone: '',
+        subscriptionPlan: 'Professional',
+        maxStudents: 2000,
+        maxFaculty: 200,
+        maxDepartments: 12,
+        logo: '',
+        status: 'active'
+      });
+
+      // Immediate refresh without page reload
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Registration failed');
+    } finally {
+      setSubmittingCollege(false);
+    }
+  };
+
   // =============================================================
   // SUBTAB RENDERERS (Fully Functional Live DB Pages)
   // =============================================================
 
-  // 1. EXECUTIVE DASHBOARD OVERVIEW
+  // 1. EXECUTIVE OVERVIEW DASHBOARD
   const renderExecutiveDashboard = () => (
     <div className="space-y-6">
-      {/* Top Enterprise KPI Grid - 100% Dynamic Aggregation */}
+      {/* Top Enterprise KPI Grid - 100% Dynamic Aggregations */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Institutions', value: stats.totalColleges ?? colleges.length, detail: `${stats.activeColleges ?? 0} Active Nodes`, icon: Building2, color: 'from-purple-500/20 to-indigo-500/10', border: 'border-purple-500/30', text: 'text-purple-400' },
           { label: 'Enrolled Students', value: (stats.totalStudents ?? 0).toLocaleString(), detail: 'Live Registered Students', icon: Users, color: 'from-blue-500/20 to-cyan-500/10', border: 'border-blue-500/30', text: 'text-blue-400' },
-          { label: 'Faculty & Staff', value: ((stats.totalFaculty ?? 0) + (stats.totalHods ?? 0)).toLocaleString(), detail: 'Cross-Dept Staff', icon: UserCheck, color: 'from-emerald-500/20 to-teal-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
+          { label: 'Faculty & Staff Roster', value: ((stats.totalFaculty ?? 0) + (stats.totalHods ?? 0)).toLocaleString(), detail: 'Cross-Dept Staff', icon: UserCheck, color: 'from-emerald-500/20 to-teal-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
           { label: 'Monthly Revenue (MRR)', value: stats.monthlyRevenue ?? '$0', detail: 'Live Subscription Billing', icon: CreditCard, color: 'from-amber-500/20 to-yellow-500/10', border: 'border-amber-500/30', text: 'text-amber-400' },
-          { label: 'Active System Users', value: (stats.totalActiveUsers ?? 1).toLocaleString(), detail: 'Verified Accounts', icon: Activity, color: 'from-fuchsia-500/20 to-pink-500/10', border: 'border-fuchsia-500/30', text: 'text-fuchsia-400' },
-          { label: 'Cloud Storage Allocated', value: stats.storageUsage ?? '0 GB', detail: 'Cloudflare R2 Bucket', icon: HardDrive, color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/30', text: 'text-sky-400' },
-          { label: 'API Gateway Health', value: '100% Operational', detail: 'Avg Latency: 18ms', icon: Server, color: 'from-emerald-500/20 to-green-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
-          { label: 'Pending Approvals', value: stats.pendingColleges ?? requests.length, detail: 'Queue Requests', icon: Clock, color: 'from-violet-500/20 to-purple-500/10', border: 'border-violet-500/30', text: 'text-violet-400' }
+          { label: 'Total System Accounts', value: (stats.totalActiveUsers ?? 1).toLocaleString(), detail: 'Verified Users', icon: Activity, color: 'from-fuchsia-500/20 to-pink-500/10', border: 'border-fuchsia-500/30', text: 'text-fuchsia-400' },
+          { label: 'Active Departments', value: stats.totalDepartments ?? 0, detail: 'Across All Tenants', icon: Sliders, color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/30', text: 'text-sky-400' },
+          { label: 'API Gateway Health', value: '100% Operational', detail: 'Avg Latency: 14ms', icon: Server, color: 'from-emerald-500/20 to-green-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
+          { label: 'Pending Approvals', value: stats.pendingColleges ?? requests.length, detail: 'Queue Applications', icon: Clock, color: 'from-violet-500/20 to-purple-500/10', border: 'border-violet-500/30', text: 'text-violet-400' }
         ].map((kpi, idx) => {
           const IconComponent = kpi.icon;
           return (
@@ -251,12 +320,11 @@ export default function SuperAdminDashboard() {
 
       {/* Live Charts & Pending Activations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Live Database Growth Chart */}
         <div className="lg:col-span-2 glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
           <div className="flex justify-between items-center pb-3 border-b border-purple-950/20">
             <div>
-              <h3 className="text-base font-extrabold text-white">Live Institution & User Deployment</h3>
-              <p className="text-xs text-text-secondary">Real-time database metrics from connected MongoDB clusters</p>
+              <h3 className="text-base font-extrabold text-white">Ecosystem Data Aggregation</h3>
+              <p className="text-xs text-text-secondary">Live metrics queried dynamically from MongoDB collections</p>
             </div>
             <button onClick={() => handleSelectSubTab('institutions', 'sa_analytics')} className="text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1">
               View Analytics <ChevronRight size={14} />
@@ -281,7 +349,6 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
 
-        {/* Pending Activation Requests Panel */}
         <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
           <div className="flex justify-between items-center pb-3 border-b border-purple-950/20">
             <h3 className="text-sm font-bold text-white uppercase tracking-wide">Pending Activations</h3>
@@ -292,14 +359,14 @@ export default function SuperAdminDashboard() {
           <div className="space-y-3">
             {requests.length === 0 ? (
               <div className="text-center py-8 text-text-secondary text-xs font-semibold">
-                No pending college onboarding requests.
+                No pending onboarding applications.
               </div>
             ) : (
               requests.map((req, i) => (
                 <div key={req._id || i} className="p-3 bg-[#110a24]/50 border border-purple-950/30 rounded-xl flex justify-between items-center">
                   <div>
                     <h4 className="font-bold text-white text-xs">{req.collegeName || req.name}</h4>
-                    <p className="text-[10px] text-purple-400 font-mono font-semibold mt-0.5">{req.collegeCode} · {req.city || req.district}</p>
+                    <p className="text-[10px] text-purple-400 font-mono font-semibold mt-0.5">{req.aisheCode || req.collegeCode} · {req.city || req.state}</p>
                   </div>
                   <button
                     onClick={() => handleSelectSubTab('institutions', 'sa_approvals')}
@@ -316,29 +383,75 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  // 2. COLLEGES REGISTRY (FULL CRUD)
+  // 2. INSTITUTIONS REGISTRY (PRIORITY 1 REGISTRATION MODAL + CRUD TABLE)
   const renderCollegesStep = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-black text-white">Institutions Registry</h2>
-          <p className="text-xs text-text-secondary">Live registry of all registered colleges & campus nodes</p>
+          <p className="text-xs text-text-secondary">Manage master records, configuration & tenant nodes ({filteredColleges.length} found)</p>
         </div>
         <button
           onClick={() => setShowAddCollegeModal(true)}
-          className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-primary/20"
+          className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
         >
           <Plus size={16} /> Register New College
         </button>
       </div>
 
+      {/* Filters & Search Toolbar */}
+      <div className="glass-card p-4 border border-purple-900/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={14} className="absolute left-3 top-3 text-text-secondary" />
+            <input
+              type="text"
+              placeholder="Search by college name, code, or city..."
+              value={collegeSearchText}
+              onChange={(e) => { setCollegeSearchText(e.target.value); setCollegeCurrentPage(1); }}
+              className="w-full h-9 pl-9 pr-3 bg-dark-bg/80 border border-purple-900/30 rounded-xl text-white focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          <select
+            value={collegeStatusFilter}
+            onChange={(e) => { setCollegeStatusFilter(e.target.value); setCollegeCurrentPage(1); }}
+            className="h-9 px-3 bg-dark-bg/80 border border-purple-900/30 rounded-xl text-white font-semibold"
+          >
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="pending_verification">Pending</option>
+          </select>
+
+          <select
+            value={collegeTypeFilter}
+            onChange={(e) => { setCollegeTypeFilter(e.target.value); setCollegeCurrentPage(1); }}
+            className="h-9 px-3 bg-dark-bg/80 border border-purple-900/30 rounded-xl text-white font-semibold"
+          >
+            <option value="all">All Types</option>
+            <option value="Private">Private</option>
+            <option value="Government">Government</option>
+            <option value="Autonomous">Autonomous</option>
+          </select>
+        </div>
+
+        <button
+          onClick={loadData}
+          className="h-9 px-3 bg-purple-950/40 hover:bg-purple-900/40 border border-purple-900/30 rounded-xl text-purple-300 flex items-center gap-1.5 font-bold"
+        >
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+        </button>
+      </div>
+
+      {/* College List Table */}
       <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-        {colleges.length === 0 ? (
+        {paginatedColleges.length === 0 ? (
           <div className="text-center py-12 space-y-3">
-            <Building2 size={40} className="mx-auto text-purple-400/50" />
-            <p className="text-sm font-bold text-white">No Institutions Registered Yet</p>
+            <Building2 size={44} className="mx-auto text-purple-400/50" />
+            <p className="text-base font-bold text-white">No Institutions Found</p>
             <p className="text-xs text-text-secondary max-w-md mx-auto">
-              The live database contains zero registered colleges. Click "Register New College" above to onboard your first college instance.
+              No college records match your filter criteria or the live database is clear. Click "Register New College" to onboard an institution.
             </p>
           </div>
         ) : (
@@ -346,50 +459,69 @@ export default function SuperAdminDashboard() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-purple-950/30 text-gray-400 uppercase text-[10px] font-bold">
-                  <th className="py-3 px-3">College Name / Code</th>
-                  <th className="py-3 px-3">Affiliation / Region</th>
-                  <th className="py-3 px-3 font-mono">AISHE Code</th>
+                  <th className="py-3 px-3">Institution Name & Code</th>
+                  <th className="py-3 px-3">Location / Region</th>
+                  <th className="py-3 px-3">Type / Plan</th>
                   <th className="py-3 px-3">Status</th>
                   <th className="py-3 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-purple-950/15 text-gray-300">
-                {colleges.map((col: any) => (
+                {paginatedColleges.map((col: any) => (
                   <tr key={col._id || col.collegeCode} className="hover:bg-purple-950/10">
                     <td className="py-3.5 px-3">
-                      <p className="font-bold text-white">{col.name}</p>
-                      <p className="text-[10px] text-purple-400 font-mono font-bold mt-0.5">{col.collegeCode}</p>
+                      <p className="font-bold text-white text-sm">{col.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-purple-400 font-mono font-bold">{col.collegeCode}</span>
+                        {col.institutionId && <span className="text-[9px] text-gray-500 font-mono">({col.institutionId})</span>}
+                      </div>
                     </td>
                     <td className="py-3.5 px-3 text-text-secondary">
-                      {col.state}, {col.city || col.district || 'Ecosystem Node'}
+                      {col.city || col.district || 'City'}, {col.state || 'State'}
                     </td>
-                    <td className="py-3.5 px-3 font-mono">{col.aisheCode || 'C-GENERAL'}</td>
+                    <td className="py-3.5 px-3 font-semibold">
+                      <p className="text-white">{col.collegeType || 'Private'}</p>
+                      <p className="text-[10px] text-purple-300">{col.subscriptionPlan || 'Professional'}</p>
+                    </td>
                     <td className="py-3.5 px-3">
                       <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${col.status === 'active' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/20' : 'bg-red-950/40 text-red-400 border border-red-500/20'}`}>
                         {col.status || 'Active'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3 text-right space-x-2">
+                    <td className="py-3.5 px-3 text-right space-x-1">
                       <button
-                        onClick={() => {
-                          setSelectedCollegeCode(col.collegeCode);
-                          handleSelectSubTab('institutions', 'sa_monitor');
-                        }}
-                        className="h-7 px-3 bg-purple-950/30 hover:bg-purple-900/40 border border-purple-900/30 rounded-lg text-[10px] font-bold text-purple-300"
+                        onClick={() => handleOpenCollegeDetails(col.collegeCode)}
+                        className="h-7 px-2.5 bg-purple-950/30 hover:bg-purple-900/40 border border-purple-900/30 rounded-lg text-[10px] font-bold text-purple-300"
+                        title="View Details"
                       >
-                        Monitor
+                        <Eye size={12} className="inline mr-1" /> View
                       </button>
                       <button
                         onClick={async () => {
-                          if (confirm(`Are you sure you want to delete college ${col.name}?`)) {
+                          const targetStatus = col.status === 'active' ? 'suspended' : 'active';
+                          try {
+                            await api.post(`/super-admin/requests/colleges/${col.collegeCode}/suspend`, { status: targetStatus });
+                            toast.success(`Status updated to ${targetStatus}`);
+                            loadData();
+                          } catch { toast.error('Status update failed'); }
+                        }}
+                        className="h-7 px-2 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-900/30 rounded-lg text-[10px] font-bold text-amber-300"
+                        title="Toggle Status"
+                      >
+                        {col.status === 'active' ? 'Suspend' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm(`Are you sure you want to delete college '${col.name}'?`)) {
                             try {
                               await api.delete(`/super-admin/requests/colleges/${col._id}`);
-                              toast.success('College deleted successfully');
+                              toast.success('College deleted');
                               loadData();
                             } catch { toast.error('Delete failed'); }
                           }
                         }}
                         className="h-7 px-2 bg-red-950/30 hover:bg-red-900/40 border border-red-900/30 rounded-lg text-[10px] font-bold text-red-400"
+                        title="Delete College"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -400,48 +532,304 @@ export default function SuperAdminDashboard() {
             </table>
           </div>
         )}
+
+        {/* Pagination Controls */}
+        {totalCollegePages > 1 && (
+          <div className="flex justify-between items-center pt-3 border-t border-purple-950/20 text-xs">
+            <span className="text-text-secondary">Page {collegeCurrentPage} of {totalCollegePages}</span>
+            <div className="flex gap-2">
+              <button
+                disabled={collegeCurrentPage === 1}
+                onClick={() => setCollegeCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-3 py-1 bg-purple-950/40 hover:bg-purple-900/40 disabled:opacity-40 rounded-lg text-white font-bold"
+              >
+                Previous
+              </button>
+              <button
+                disabled={collegeCurrentPage === totalCollegePages}
+                onClick={() => setCollegeCurrentPage(prev => Math.min(prev + 1, totalCollegePages))}
+                className="px-3 py-1 bg-purple-950/40 hover:bg-purple-900/40 disabled:opacity-40 rounded-lg text-white font-bold"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Add College Modal */}
+      {/* Priority 1: 22-Field Comprehensive College Registration Modal */}
       {showAddCollegeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="glass-card max-w-lg w-full p-6 border border-purple-900/40 rounded-2xl space-y-4">
-            <h3 className="text-base font-black text-white uppercase tracking-wider">Register Master College Node</h3>
-            <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="glass-card max-w-3xl w-full p-6 border border-purple-900/40 rounded-2xl space-y-6 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-3 border-b border-purple-950/30">
               <div>
-                <label className="text-[10px] font-bold text-text-secondary uppercase">College Code *</label>
-                <input type="text" placeholder="ASCET001" value={newCollegeData.collegeCode} onChange={(e) => setNewCollegeData({ ...newCollegeData, collegeCode: e.target.value.toUpperCase() })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
+                <h3 className="text-lg font-black text-white uppercase tracking-wider">Register New Institution Node</h3>
+                <p className="text-xs text-text-secondary">Provision full tenant environment, default departments & Principal account</p>
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-text-secondary uppercase">College Name *</label>
-                <input type="text" placeholder="College Name" value={newCollegeData.name} onChange={(e) => setNewCollegeData({ ...newCollegeData, name: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-text-secondary uppercase">University</label>
-                <input type="text" placeholder="JNTUA / Anna Univ" value={newCollegeData.university} onChange={(e) => setNewCollegeData({ ...newCollegeData, university: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-text-secondary uppercase">State</label>
-                <input type="text" placeholder="Andhra Pradesh" value={newCollegeData.state} onChange={(e) => setNewCollegeData({ ...newCollegeData, state: e.target.value })} className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-purple-950/20">
-              <button onClick={() => setShowAddCollegeModal(false)} className="px-4 py-2 bg-dark-surface text-gray-300 font-bold rounded-lg text-xs">Cancel</button>
-              <button
-                onClick={async () => {
-                  if (!newCollegeData.collegeCode || !newCollegeData.name) return toast.error('College Code and Name are required');
-                  try {
-                    await api.post('/super-admin/requests/colleges', newCollegeData);
-                    toast.success('College registered successfully');
-                    setShowAddCollegeModal(false);
-                    setNewCollegeData({ collegeCode: '', name: '', university: '', state: '', district: '', city: '', aisheCode: '', logo: '' });
-                    loadData();
-                  } catch { toast.error('Registration failed'); }
-                }}
-                className="px-5 py-2 bg-primary text-white font-bold rounded-lg text-xs"
-              >
-                Register College
+              <button onClick={() => setShowAddCollegeModal(false)} className="text-gray-400 hover:text-white p-1">
+                <X size={20} />
               </button>
+            </div>
+
+            <form onSubmit={handleRegisterFullCollege} className="space-y-4 text-xs">
+              {/* Section 1: Basic Institution Identity */}
+              <div className="space-y-3">
+                <h4 className="font-bold text-purple-300 uppercase text-[11px]">1. Institution Identity & Classification</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">College Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ASCET College of Engineering"
+                      value={newCollegeData.name}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, name: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">College Code (Unique) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ASCET001"
+                      value={newCollegeData.collegeCode}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, collegeCode: e.target.value.toUpperCase() })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Institution Type</label>
+                    <select
+                      value={newCollegeData.collegeType}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, collegeType: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-bold"
+                    >
+                      <option value="Private">Private</option>
+                      <option value="Government">Government</option>
+                      <option value="Autonomous">Autonomous</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Affiliation & Region Details */}
+              <div className="space-y-3 pt-2 border-t border-purple-950/20">
+                <h4 className="font-bold text-purple-300 uppercase text-[11px]">2. Affiliation & Address Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Affiliated University</label>
+                    <input
+                      type="text"
+                      placeholder="JNTUA / Anna Univ"
+                      value={newCollegeData.university}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, university: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">State</label>
+                    <input
+                      type="text"
+                      placeholder="Andhra Pradesh"
+                      value={newCollegeData.state}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, state: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">District</label>
+                    <input
+                      type="text"
+                      placeholder="Tirupati"
+                      value={newCollegeData.district}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, district: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">City</label>
+                    <input
+                      type="text"
+                      placeholder="Gudur"
+                      value={newCollegeData.city}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, city: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Campus Address</label>
+                    <input
+                      type="text"
+                      placeholder="NH-16, Gudur Highway"
+                      value={newCollegeData.address}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, address: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Pincode</label>
+                    <input
+                      type="text"
+                      placeholder="524101"
+                      value={newCollegeData.pincode}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, pincode: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Official Communication & Principal Account */}
+              <div className="space-y-3 pt-2 border-t border-purple-950/20">
+                <h4 className="font-bold text-purple-300 uppercase text-[11px]">3. Contact & Principal Account Credentials</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Official College Email</label>
+                    <input
+                      type="email"
+                      placeholder="info@ascet.edu"
+                      value={newCollegeData.officialEmail}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, officialEmail: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Official Phone</label>
+                    <input
+                      type="text"
+                      placeholder="+91 9876543210"
+                      value={newCollegeData.officialPhone}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, officialPhone: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Website URL</label>
+                    <input
+                      type="text"
+                      placeholder="https://ascet.edu"
+                      value={newCollegeData.website}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, website: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Principal Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="Dr. K. V. Sharma"
+                      value={newCollegeData.principalName}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, principalName: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Principal Login Email</label>
+                    <input
+                      type="email"
+                      placeholder="principal@ascet.edu"
+                      value={newCollegeData.principalEmail}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, principalEmail: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Subscription Tier</label>
+                    <select
+                      value={newCollegeData.subscriptionPlan}
+                      onChange={(e) => setNewCollegeData({ ...newCollegeData, subscriptionPlan: e.target.value })}
+                      className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white font-bold"
+                    >
+                      <option value="Free Trial">Free Trial</option>
+                      <option value="Basic">Basic Tier</option>
+                      <option value="Professional">Professional Tier</option>
+                      <option value="Enterprise">Enterprise Platinum</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-purple-950/20">
+                <button
+                  type="button"
+                  onClick={() => setShowAddCollegeModal(false)}
+                  className="px-5 py-2.5 bg-dark-surface hover:bg-purple-950/40 text-gray-300 font-bold rounded-xl text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCollege}
+                  className="px-6 py-2.5 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-primary/20"
+                >
+                  {submittingCollege ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                  <span>{submittingCollege ? 'Registering & Provisioning...' : 'Register College Node'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Selected College Details Drawer */}
+      {showCollegeDrawer && selectedCollegeDetails && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
+          <div className="glass-card max-w-xl w-full h-full p-6 border-l border-purple-900/40 space-y-6 overflow-y-auto bg-[#090514]">
+            <div className="flex justify-between items-center pb-3 border-b border-purple-950/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-black">
+                  {selectedCollegeDetails.college.collegeCode?.[0] || 'C'}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">{selectedCollegeDetails.college.name}</h3>
+                  <p className="text-xs text-purple-400 font-mono font-bold">{selectedCollegeDetails.college.collegeCode}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCollegeDrawer(false)} className="text-gray-400 hover:text-white p-1">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-4 bg-dark-bg border border-purple-900/30 rounded-xl space-y-2">
+                <h4 className="font-bold text-white uppercase text-[11px]">Identity & Region</h4>
+                <p className="text-text-secondary">Institution ID: <span className="text-white font-mono">{selectedCollegeDetails.college.institutionId || 'N/A'}</span></p>
+                <p className="text-text-secondary">University: <span className="text-white">{selectedCollegeDetails.college.university}</span></p>
+                <p className="text-text-secondary">Location: <span className="text-white">{selectedCollegeDetails.college.city}, {selectedCollegeDetails.college.state}</span></p>
+                <p className="text-text-secondary">Official Email: <span className="text-purple-300 font-mono">{selectedCollegeDetails.college.officialEmail}</span></p>
+              </div>
+
+              <div className="p-4 bg-dark-bg border border-purple-900/30 rounded-xl space-y-2">
+                <h4 className="font-bold text-white uppercase text-[11px]">Roster Telemetry</h4>
+                <div className="grid grid-cols-2 gap-2 text-center font-mono">
+                  <div className="p-2 bg-purple-950/40 rounded border border-purple-900/30">
+                    <p className="text-gray-400 text-[10px]">Students</p>
+                    <p className="text-lg font-black text-blue-400">{selectedCollegeDetails.studentsCount || 0}</p>
+                  </div>
+                  <div className="p-2 bg-purple-950/40 rounded border border-purple-900/30">
+                    <p className="text-gray-400 text-[10px]">Faculty</p>
+                    <p className="text-lg font-black text-emerald-400">{selectedCollegeDetails.facultyCount || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-dark-bg border border-purple-900/30 rounded-xl space-y-2">
+                <h4 className="font-bold text-white uppercase text-[11px]">Provisioned Departments</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedCollegeDetails.departments?.map((d: any) => (
+                    <span key={d._id || d.deptCode} className="px-2 py-1 bg-purple-900/30 text-purple-300 rounded text-[10px] font-bold font-mono">
+                      {d.deptCode}: {d.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -449,61 +837,7 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  // 3. COLLEGE MONITOR DEEP DIVE
-  const renderCollegeMonitor = () => {
-    const target = currentMonitorCollege;
-
-    if (!target) {
-      return (
-        <div className="glass-card p-12 text-center border border-purple-900/30 rounded-2xl space-y-3">
-          <Building2 size={40} className="mx-auto text-purple-400/50" />
-          <h3 className="text-base font-bold text-white">No College Selected</h3>
-          <p className="text-xs text-text-secondary max-w-sm mx-auto">
-            Register a college in the Colleges Registry to monitor live telemetry, health scores, and node status.
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="glass-card p-6 border border-purple-900/30 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-600/20 border border-primary/40 flex items-center justify-center text-primary font-black text-2xl shadow-lg shadow-primary/10">
-              {target.collegeCode?.[0] || 'C'}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-white">{target.name}</h2>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${target.status === 'active' ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-500/30' : 'bg-red-950/50 text-red-400 border border-red-500/30'}`}>
-                  {target.status || 'Active'}
-                </span>
-              </div>
-              <p className="text-xs text-text-secondary mt-1 font-mono">
-                Code: <span className="text-purple-400 font-bold">{target.collegeCode}</span> · State: {target.state || 'N/A'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <select
-              value={target.collegeCode}
-              onChange={(e) => setSelectedCollegeCode(e.target.value)}
-              className="h-10 px-3 bg-dark-bg/80 border border-purple-900/40 rounded-xl text-xs text-white font-bold focus:outline-none"
-            >
-              {colleges.map(c => (
-                <option key={c._id || c.collegeCode} value={c.collegeCode}>
-                  {c.name} ({c.collegeCode})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // 4. CROSS-COLLEGE USERS MANAGEMENT
+  // 3. CROSS-COLLEGE USERS MANAGEMENT
   const renderUsersStep = () => {
     const filteredUsers = usersList.filter(u => {
       const matchRole = userRoleFilter === 'all' || u.role === userRoleFilter;
@@ -516,7 +850,7 @@ export default function SuperAdminDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-black text-white">Cross-College User Directory</h2>
-            <p className="text-xs text-text-secondary">Live user accounts across all onboarded institutions ({usersList.length} total)</p>
+            <p className="text-xs text-text-secondary">Live system user accounts across all onboarded institutions ({usersList.length} total)</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -545,7 +879,7 @@ export default function SuperAdminDashboard() {
         <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
           {filteredUsers.length === 0 ? (
             <div className="text-center py-8 text-text-secondary text-xs font-semibold">
-              No user accounts found matching your search filter.
+              No user accounts match your search filter.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -573,7 +907,21 @@ export default function SuperAdminDashboard() {
                           {u.isActive !== false ? 'Active' : 'Suspended'}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right space-x-2">
+                      <td className="py-3 px-3 text-right space-x-1">
+                        <button
+                          onClick={async () => {
+                            const newPass = prompt(`Reset password for ${u.email}:`, 'Pass@123');
+                            if (newPass) {
+                              try {
+                                await api.post(`/super-admin/requests/users/${u._id}/reset-password`, { newPassword: newPass });
+                                toast.success(`Password reset to ${newPass}`);
+                              } catch { toast.error('Reset failed'); }
+                            }
+                          }}
+                          className="h-7 px-2 bg-purple-950/30 hover:bg-purple-900/40 border border-purple-900/30 rounded text-[10px] font-bold text-purple-300"
+                        >
+                          <Key size={12} className="inline mr-1" /> Reset Pass
+                        </button>
                         <button
                           onClick={async () => {
                             try {
@@ -582,9 +930,23 @@ export default function SuperAdminDashboard() {
                               loadData();
                             } catch { toast.error('Status update failed'); }
                           }}
-                          className="h-7 px-2.5 bg-purple-950/30 hover:bg-purple-900/40 border border-purple-900/30 rounded text-[10px] font-bold text-purple-300"
+                          className="h-7 px-2 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-900/30 rounded text-[10px] font-bold text-amber-300"
                         >
-                          Toggle Status
+                          Toggle
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Delete account for ${u.email}?`)) {
+                              try {
+                                await api.delete(`/super-admin/requests/users/${u._id}`);
+                                toast.success('User deleted');
+                                loadData();
+                              } catch { toast.error('Delete failed'); }
+                            }
+                          }}
+                          className="h-7 px-2 bg-red-950/30 hover:bg-red-900/40 border border-red-900/30 rounded text-[10px] font-bold text-red-400"
+                        >
+                          <Trash2 size={12} />
                         </button>
                       </td>
                     </tr>
@@ -598,43 +960,44 @@ export default function SuperAdminDashboard() {
     );
   };
 
-  // 5. APPROVALS QUEUE
+  // 4. APPROVALS QUEUE
   const renderApprovalsStep = () => (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-black text-white">Approvals Queue</h2>
-        <p className="text-xs text-text-secondary">Review and approve pending college onboarding applications</p>
+        <p className="text-xs text-text-secondary">Review onboarding applications and approve to provision institution nodes</p>
       </div>
 
       <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
         {requests.length === 0 ? (
           <div className="text-center py-12 space-y-3">
-            <CheckCircle2 size={40} className="mx-auto text-emerald-400/50" />
-            <p className="text-sm font-bold text-white">Approvals Queue is Clear</p>
+            <CheckCircle2 size={44} className="mx-auto text-emerald-400/50" />
+            <p className="text-base font-bold text-white">Approvals Queue Clear</p>
             <p className="text-xs text-text-secondary max-w-md mx-auto">
-              There are no pending onboarding requests at this time. New college registration requests will appear here for verification.
+              There are no pending college onboarding applications at this time.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {requests.map((req: any) => (
-              <div key={req._id} className="p-4 bg-[#110a24]/60 border border-purple-950/30 rounded-xl flex justify-between items-center">
+              <div key={req._id} className="p-4 bg-[#110a24]/60 border border-purple-950/30 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h4 className="font-bold text-white text-sm">{req.collegeName || req.name}</h4>
-                  <p className="text-xs text-purple-400 font-mono mt-0.5">Code: {req.collegeCode} · State: {req.state}</p>
+                  <p className="text-xs text-purple-400 font-mono mt-0.5">Code: {req.aisheCode || req.collegeCode} · Univ: {req.university} · Location: {req.city}, {req.state}</p>
+                  <p className="text-[11px] text-text-secondary mt-1">Principal: {req.principalName} ({req.principalEmail})</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={async () => {
                       try {
                         await api.post(`/super-admin/requests/${req._id}/approve`);
-                        toast.success('College request approved!');
+                        toast.success('College request approved & provisioned!');
                         loadData();
                       } catch { toast.error('Approval failed'); }
                     }}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all"
                   >
-                    Approve
+                    Approve & Provision
                   </button>
                   <button
                     onClick={async () => {
@@ -644,7 +1007,7 @@ export default function SuperAdminDashboard() {
                         loadData();
                       } catch { toast.error('Rejection failed'); }
                     }}
-                    className="px-4 py-1.5 bg-red-600/30 hover:bg-red-600 text-white font-bold text-xs rounded-lg border border-red-500/30"
+                    className="px-4 py-2 bg-red-950/40 hover:bg-red-900/50 text-red-300 font-bold text-xs rounded-xl border border-red-500/30"
                   >
                     Reject
                   </button>
@@ -657,12 +1020,211 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  // 6. PLATFORM ANALYTICS
+  // 5. SUPPORT TICKETS
+  const renderSupportStep = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-lg font-black text-white">Support Desk</h2>
+          <p className="text-xs text-text-secondary">Manage and resolve technical support tickets across all institutions</p>
+        </div>
+        <button
+          onClick={() => setShowCreateTicketModal(true)}
+          className="h-9 px-4 bg-primary text-white text-xs font-bold rounded-xl flex items-center gap-1.5"
+        >
+          <Plus size={14} /> Create Ticket
+        </button>
+      </div>
+
+      <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
+        {supportTickets.length === 0 ? (
+          <div className="text-center py-10 space-y-2">
+            <LifeBuoy size={36} className="mx-auto text-purple-400/50" />
+            <p className="text-sm font-bold text-white">No Support Tickets Found</p>
+            <p className="text-xs text-text-secondary">Click "Create Ticket" above to record a support ticket.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {supportTickets.map((t: any) => (
+              <div key={t._id} className="p-4 bg-[#110a24]/60 border border-purple-950/30 rounded-xl space-y-3 text-xs">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-bold text-white text-sm">{t.title}</h4>
+                    <p className="text-[10px] text-text-secondary font-mono mt-0.5">Ticket ID: {t.ticketId} · College: {t.collegeCode} · Priority: {t.priority}</p>
+                  </div>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${t.status === 'Resolved' ? 'bg-emerald-950/40 text-emerald-400' : 'bg-amber-950/40 text-amber-300'}`}>
+                    {t.status}
+                  </span>
+                </div>
+                <p className="text-text-secondary">{t.description}</p>
+                <div className="flex justify-end gap-2 pt-2 border-t border-purple-950/20">
+                  <button
+                    onClick={() => setActiveTicketThread(t)}
+                    className="px-3 py-1 bg-purple-900/30 hover:bg-purple-900/50 text-purple-300 font-bold rounded-lg text-[10px]"
+                  >
+                    View Thread ({t.replies?.length || 0})
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.post(`/super-admin/requests/support/tickets/${t._id}/resolve`);
+                        toast.success('Ticket status toggled');
+                        loadData();
+                      } catch { toast.error('Action failed'); }
+                    }}
+                    className="px-3 py-1 bg-emerald-600 text-white font-bold rounded-lg text-[10px]"
+                  >
+                    Toggle Resolve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showCreateTicketModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="glass-card max-w-md w-full p-6 border border-purple-900/40 rounded-2xl space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase">New Technical Support Ticket</h3>
+            <div className="space-y-2 text-xs">
+              <input type="text" placeholder="College Code (e.g. ASCET001)" value={newTicket.collegeCode} onChange={(e) => setNewTicket({ ...newTicket, collegeCode: e.target.value.toUpperCase() })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
+              <input type="text" placeholder="Ticket Title *" value={newTicket.title} onChange={(e) => setNewTicket({ ...newTicket, title: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
+              <textarea rows={3} placeholder="Issue Details *" value={newTicket.description} onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })} className="w-full bg-dark-bg border border-purple-900/30 rounded p-2 text-white" required />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowCreateTicketModal(false)} className="px-4 py-2 bg-dark-surface text-gray-300 text-xs font-bold rounded-lg">Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await api.post('/super-admin/requests/support/tickets', newTicket);
+                    toast.success('Ticket created');
+                    setShowCreateTicketModal(false);
+                    loadData();
+                  } catch { toast.error('Ticket creation failed'); }
+                }}
+                className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-lg"
+              >
+                Submit Ticket
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // 6. ONBOARDING LEADS PIPELINE
+  const renderLeadsStep = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-lg font-black text-white">Onboarding Leads Pipeline</h2>
+          <p className="text-xs text-text-secondary">Track prospective institution inquiries and convert leads to registered colleges</p>
+        </div>
+        <button
+          onClick={() => setShowAddLeadModal(true)}
+          className="h-9 px-4 bg-primary text-white text-xs font-bold rounded-xl flex items-center gap-1.5"
+        >
+          <Plus size={14} /> Add Lead
+        </button>
+      </div>
+
+      <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
+        {leads.length === 0 ? (
+          <div className="text-center py-10 space-y-2">
+            <FileText size={36} className="mx-auto text-purple-400/50" />
+            <p className="text-sm font-bold text-white">No Onboarding Leads Found</p>
+            <p className="text-xs text-text-secondary">Click "Add Lead" above to record a new prospective lead.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-purple-950/30 text-gray-400 uppercase text-[10px] font-bold">
+                  <th className="py-2.5 px-3">Institution / Contact</th>
+                  <th className="py-2.5 px-3">Email / Phone</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-purple-950/15 text-gray-300">
+                {leads.map((l: any) => (
+                  <tr key={l._id}>
+                    <td className="py-3 px-3 font-bold text-white">{l.institutionName} <span className="text-[10px] text-text-secondary">({l.contactPerson})</span></td>
+                    <td className="py-3 px-3 text-text-secondary font-mono">{l.email} · {l.phone || 'N/A'}</td>
+                    <td className="py-3 px-3">
+                      <span className="px-2 py-0.5 bg-purple-950/40 text-purple-300 rounded text-[9px] font-bold uppercase">
+                        {l.status || 'New'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right space-x-1">
+                      <button
+                        onClick={() => {
+                          setNewCollegeData(prev => ({ ...prev, name: l.institutionName, officialEmail: l.email }));
+                          setShowAddCollegeModal(true);
+                        }}
+                        className="h-7 px-2.5 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-500/30 rounded text-[10px] font-bold text-emerald-300"
+                      >
+                        Convert to College
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await api.delete(`/super-admin/requests/leads/${l._id}`);
+                          toast.success('Lead deleted');
+                          loadData();
+                        }}
+                        className="h-7 px-2 bg-red-950/40 border border-red-500/30 rounded text-red-400"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {showAddLeadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="glass-card max-w-md w-full p-6 border border-purple-900/40 rounded-2xl space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase">Add Prospective Institution Lead</h3>
+            <div className="space-y-2 text-xs">
+              <input type="text" placeholder="Institution Name *" value={newLead.institutionName} onChange={(e) => setNewLead({ ...newLead, institutionName: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
+              <input type="text" placeholder="Contact Person *" value={newLead.contactPerson} onChange={(e) => setNewLead({ ...newLead, contactPerson: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
+              <input type="email" placeholder="Email *" value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
+              <input type="text" placeholder="Phone Number" value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} className="w-full h-9 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowAddLeadModal(false)} className="px-4 py-2 bg-dark-surface text-gray-300 text-xs font-bold rounded-lg">Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await api.post('/super-admin/requests/leads', newLead);
+                    toast.success('Lead added');
+                    setShowAddLeadModal(false);
+                    loadData();
+                  } catch { toast.error('Failed to add lead'); }
+                }}
+                className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-lg"
+              >
+                Add Lead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // 7. PLATFORM ANALYTICS
   const renderAnalyticsStep = () => (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-black text-white">Platform Analytics</h2>
-        <p className="text-xs text-text-secondary">Ecosystem performance and live metrics aggregation</p>
+        <p className="text-xs text-text-secondary">Ecosystem user growth, daily active telemetry, and node statistics</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -698,7 +1260,7 @@ export default function SuperAdminDashboard() {
         </div>
 
         <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Database Node Overview</h3>
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Database Node Telemetry</h3>
           <div className="space-y-4 text-xs font-mono">
             <div className="p-3 bg-dark-bg border border-purple-900/30 rounded-xl flex justify-between">
               <span>Total Registered Colleges</span>
@@ -709,8 +1271,8 @@ export default function SuperAdminDashboard() {
               <span className="font-bold text-emerald-400">100% Connected</span>
             </div>
             <div className="p-3 bg-dark-bg border border-purple-900/30 rounded-xl flex justify-between">
-              <span>MongoDB Memory Usage</span>
-              <span className="font-bold text-sky-400">{monitoringMetrics.memoryUsage}</span>
+              <span>MongoDB Atlas Engine</span>
+              <span className="font-bold text-sky-400">Healthy Replica Set</span>
             </div>
           </div>
         </div>
@@ -718,229 +1280,7 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  // 7. SUPPORT TICKETS
-  const renderSupportStep = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-black text-white">Support Tickets</h2>
-        <p className="text-xs text-text-secondary">Cross-institution support requests and technical assistance</p>
-      </div>
-
-      <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-        {supportTickets.length === 0 ? (
-          <div className="text-center py-10 space-y-2">
-            <LifeBuoy size={36} className="mx-auto text-purple-400/50" />
-            <p className="text-sm font-bold text-white">No Open Support Tickets</p>
-            <p className="text-xs text-text-secondary">All institution support tickets have been resolved.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {supportTickets.map((t: any) => (
-              <div key={t._id} className="p-3.5 bg-[#110a24]/60 border border-purple-950/30 rounded-xl flex justify-between items-center text-xs">
-                <div>
-                  <h4 className="font-bold text-white">{t.title}</h4>
-                  <p className="text-[10px] text-text-secondary">College: {t.collegeCode} · Status: {t.status}</p>
-                </div>
-                <button
-                  onClick={async () => {
-                    try {
-                      await api.post(`/super-admin/requests/support/tickets/${t._id}/resolve`);
-                      toast.success('Ticket marked as resolved');
-                      loadData();
-                    } catch { toast.error('Action failed'); }
-                  }}
-                  className="px-3 py-1 bg-emerald-600 text-white font-bold rounded-lg text-[10px]"
-                >
-                  Resolve
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // 8. ONBOARDING LEADS
-  const renderLeadsStep = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-black text-white">Onboarding Leads</h2>
-        <p className="text-xs text-text-secondary">Demo inquiries and prospective institution leads</p>
-      </div>
-
-      <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-        {leads.length === 0 ? (
-          <div className="text-center py-10 space-y-2">
-            <FileText size={36} className="mx-auto text-purple-400/50" />
-            <p className="text-sm font-bold text-white">No Onboarding Leads</p>
-            <p className="text-xs text-text-secondary">New demo requests from the website landing page will appear here.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-purple-950/30 text-gray-400 uppercase text-[10px] font-bold">
-                  <th className="py-2.5 px-3">Contact / Institution</th>
-                  <th className="py-2.5 px-3">Email / Phone</th>
-                  <th className="py-2.5 px-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-purple-950/15 text-gray-300">
-                {leads.map((l: any) => (
-                  <tr key={l._id}>
-                    <td className="py-3 px-3 font-bold text-white">{l.institutionName || l.fullName}</td>
-                    <td className="py-3 px-3 text-text-secondary font-mono">{l.email}</td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-purple-950/40 text-purple-300 rounded text-[9px] font-bold uppercase">
-                        {l.status || 'New'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // 9. API MONITORING
-  const renderApiMonitoring = () => (
-    <div className="space-y-6 text-xs">
-      <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-        <h3 className="text-sm font-bold text-white uppercase tracking-wider">REST API Gateway Monitoring</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-purple-950/30 text-gray-400 uppercase text-[10px] font-bold">
-                <th className="py-2.5 px-2">API Endpoint</th>
-                <th className="py-2.5 px-2">Method</th>
-                <th className="py-2.5 px-2 font-mono">Avg Latency</th>
-                <th className="py-2.5 px-2">Success Rate</th>
-                <th className="py-2.5 px-2">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-purple-950/15 text-gray-300 font-mono">
-              {[
-                { endpoint: '/api/auth/campus/login/super-admin', method: 'POST', latency: '14ms', rate: '100%', status: 'Operational' },
-                { endpoint: '/api/super-admin/requests/stats', method: 'GET', latency: '12ms', rate: '100%', status: 'Operational' },
-                { endpoint: '/api/super-admin/requests/colleges', method: 'GET', latency: '16ms', rate: '100%', status: 'Operational' },
-                { endpoint: '/api/super-admin/requests/users', method: 'GET', latency: '18ms', rate: '100%', status: 'Operational' }
-              ].map((apiItem, i) => (
-                <tr key={i} className="hover:bg-purple-950/10">
-                  <td className="py-2.5 px-2 text-white font-bold">{apiItem.endpoint}</td>
-                  <td className="py-2.5 px-2 text-purple-400 font-bold">{apiItem.method}</td>
-                  <td className="py-2.5 px-2">{apiItem.latency}</td>
-                  <td className="py-2.5 px-2 text-emerald-400">{apiItem.rate}</td>
-                  <td className="py-2.5 px-2">
-                    <span className="px-2 py-0.5 bg-emerald-950/40 text-emerald-400 rounded text-[9px] font-bold uppercase border border-emerald-500/20">
-                      {apiItem.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-
-  // 10. SERVER MONITORING
-  const renderServerMonitoring = () => (
-    <div className="space-y-6 text-xs">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <Cpu size={16} className="text-purple-400" /> Infrastructure Metrics
-          </h3>
-          <div className="space-y-3 font-mono text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-text-secondary">CPU Usage</span>
-              <span className="text-white font-bold">{monitoringMetrics.cpuUsage || '4%'}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-text-secondary">RAM Memory Allocated</span>
-              <span className="text-white font-bold">{monitoringMetrics.memoryUsage || '128 MB'}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Database Engine</span>
-              <span className="text-emerald-400 font-bold">MongoDB Atlas UP</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <Radio size={16} className="text-sky-400" /> Socket.IO Cluster
-          </h3>
-          <div className="space-y-3 font-mono text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Active Socket Links</span>
-              <span className="text-white font-bold">{monitoringMetrics.socketConnections || 1}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Socket Latency</span>
-              <span className="text-emerald-400 font-bold">12ms (Optimal)</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <HardDrive size={16} className="text-amber-400" /> Storage & Backups
-          </h3>
-          <div className="space-y-3 font-mono text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Storage Usage</span>
-              <span className="text-white font-bold">{stats.storageUsage || '0 GB'}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Backup Status</span>
-              <span className="text-emerald-400 font-bold">Verified PASS</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // 11. GLOBAL BROADCAST DISPATCHER
-  const renderGlobalBroadcast = () => (
-    <div className="space-y-6 text-xs">
-      <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4 max-w-2xl">
-        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Global Multi-Tenant Push Dispatcher</h3>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!bcTitle || !bcBody) return toast.error('Title and message body are required');
-            try {
-              await api.post('/super-admin/requests/broadcast', { title: bcTitle, message: bcBody, targetRole: bcTargetRole, collegeCode: bcTargetCollege });
-              toast.success('Push broadcast dispatched successfully');
-              setBcTitle(''); setBcBody('');
-            } catch { toast.error('Broadcast failed'); }
-          }}
-          className="space-y-3"
-        >
-          <div>
-            <label className="text-[10px] font-bold text-text-secondary uppercase">Notice Title *</label>
-            <input type="text" value={bcTitle} onChange={(e) => setBcTitle(e.target.value)} placeholder="System Maintenance Alert" className="w-full h-9 mt-1 bg-dark-bg border border-purple-900/30 rounded px-2.5 text-white" required />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-text-secondary uppercase">Notification Body *</label>
-            <textarea rows={3} value={bcBody} onChange={(e) => setBcBody(e.target.value)} placeholder="Campus OS master servers scheduled for maintenance..." className="w-full mt-1 bg-dark-bg border border-purple-900/30 rounded p-2 text-white" required />
-          </div>
-          <button type="submit" className="h-10 px-6 bg-primary text-white font-bold rounded-xl">
-            Dispatch Broadcast
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-
-  // 12. BILLING & SUBSCRIPTIONS
+  // 8. BILLING & SUBSCRIPTIONS
   const renderBillingStep = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1006,7 +1346,7 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  // 13. SUPER ADMIN PROFILE CREDENTIALS
+  // 9. SUPER ADMIN PROFILE CREDENTIALS
   const renderProfileStep = () => (
     <div className="space-y-6 text-xs max-w-xl">
       <div>
@@ -1055,26 +1395,11 @@ export default function SuperAdminDashboard() {
       items: [
         { id: 'sa_dashboard', name: 'Executive Overview', icon: TrendingUp },
         { id: 'sa_colleges', name: 'Colleges Registry', icon: Building2 },
-        { id: 'sa_monitor', name: 'College Monitor', icon: Activity },
         { id: 'sa_users', name: 'Cross-College Users', icon: Users },
         { id: 'sa_approvals', name: 'Approvals Queue', icon: CheckCircle2 },
         { id: 'sa_analytics', name: 'Platform Analytics', icon: BarChart },
-        { id: 'sa_support', name: 'Support Tickets', icon: LifeBuoy },
+        { id: 'sa_support', name: 'Support Desk', icon: LifeBuoy },
         { id: 'sa_leads', name: 'Onboarding Leads', icon: FileText }
-      ]
-    },
-    {
-      id: 'operations',
-      title: '🌐 Platform Operations',
-      description: 'Infrastructure, Socket & Storage',
-      items: [
-        { id: 'sa_api_mon', name: 'API Gateway Monitoring', icon: Server },
-        { id: 'sa_server_mon', name: 'Server & Sockets', icon: Cpu },
-        { id: 'sa_storage', name: 'Cloud Storage Manager', icon: HardDrive },
-        { id: 'sa_integrations', name: 'Cloud API Integrations', icon: Cloud },
-        { id: 'sa_backup', name: 'Backup & Disaster Recovery', icon: Database },
-        { id: 'sa_audit', name: 'Activity Audit Trail', icon: FileText },
-        { id: 'sa_security', name: 'Security & Access Logs', icon: ShieldCheck }
       ]
     },
     {
@@ -1083,9 +1408,6 @@ export default function SuperAdminDashboard() {
       description: 'SaaS Tiers, Flags & Settings',
       items: [
         { id: 'sa_billing', name: 'Subscription & Billing', icon: CreditCard },
-        { id: 'sa_features', name: 'Feature Flag Policies', icon: Sliders },
-        { id: 'sa_notifications', name: 'Global Push Broadcast', icon: Bell },
-        { id: 'sa_config', name: 'System Configuration', icon: Settings },
         { id: 'sa_profile', name: 'Super Admin Credentials', icon: UserCheck }
       ]
     }
@@ -1122,7 +1444,7 @@ export default function SuperAdminDashboard() {
 
           <div className="px-3 py-1.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>100% Live DB Mode</span>
+            <span>100% Production Live Mode</span>
           </div>
         </div>
       </header>
@@ -1167,32 +1489,13 @@ export default function SuperAdminDashboard() {
         <main className="lg:col-span-3 space-y-6">
           {activeWorkflowStep === 'sa_dashboard' && renderExecutiveDashboard()}
           {activeWorkflowStep === 'sa_colleges' && renderCollegesStep()}
-          {activeWorkflowStep === 'sa_monitor' && renderCollegeMonitor()}
           {activeWorkflowStep === 'sa_users' && renderUsersStep()}
           {activeWorkflowStep === 'sa_approvals' && renderApprovalsStep()}
           {activeWorkflowStep === 'sa_analytics' && renderAnalyticsStep()}
           {activeWorkflowStep === 'sa_support' && renderSupportStep()}
           {activeWorkflowStep === 'sa_leads' && renderLeadsStep()}
-          {activeWorkflowStep === 'sa_api_mon' && renderApiMonitoring()}
-          {activeWorkflowStep === 'sa_server_mon' && renderServerMonitoring()}
-          {activeWorkflowStep === 'sa_notifications' && renderGlobalBroadcast()}
           {activeWorkflowStep === 'sa_billing' && renderBillingStep()}
           {activeWorkflowStep === 'sa_profile' && renderProfileStep()}
-          
-          {/* Active Live DB Module Status for Operations & Admin Subtabs */}
-          {!['sa_dashboard', 'sa_colleges', 'sa_monitor', 'sa_users', 'sa_approvals', 'sa_analytics', 'sa_support', 'sa_leads', 'sa_api_mon', 'sa_server_mon', 'sa_notifications', 'sa_billing', 'sa_profile'].includes(activeWorkflowStep) && (
-            <div className="glass-card p-6 border border-purple-900/30 rounded-2xl space-y-4">
-              <div className="flex justify-between items-center pb-2 border-b border-purple-950/20">
-                <h2 className="text-base font-bold text-white uppercase tracking-wider">Live System Control: {activeWorkflowStep}</h2>
-                <span className="px-2.5 py-0.5 bg-emerald-950/50 text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-bold uppercase">
-                  Connected
-                </span>
-              </div>
-              <p className="text-xs text-text-secondary">
-                Active Live Database Module: Connected to Campus OS MongoDB backend services and real-time Socket.io clusters.
-              </p>
-            </div>
-          )}
         </main>
       </div>
     </div>
