@@ -2894,9 +2894,7 @@ export default function CampusDashboard() {
         const formData = new FormData();
         formData.append('file', file);
         
-        const parseRes = await api.post('/erp/import/parse', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const parseRes = await api.post('/erp/import/parse', formData);
         
         setErpFile(file);
         setErpPreviewHeaders(parseRes.data.headers || []);
