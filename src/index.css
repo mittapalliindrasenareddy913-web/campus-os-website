@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dark-bg: #090514;
+  --color-card-bg: rgba(17, 10, 36, 0.65);
+  --color-primary: #7c3aed;
+  --color-accent: #2563eb;
+  --color-border-glow: rgba(124, 58, 237, 0.3);
+  --color-text-primary: #f3f4f6;
+  --color-text-secondary: #9ca3af;
+}
+
+body {
+  background-color: #090514;
+  color: #f3f4f6;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Custom premium glassmorphic cards */
+.glass-card {
+  background: rgba(17, 10, 36, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.glass-glow {
+  box-shadow: 0 0 25px rgba(124, 58, 237, 0.18);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #a78bfa, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
