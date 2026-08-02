@@ -85,7 +85,6 @@ export default function SuperAdminDashboard() {
   // Selected College Details Drawer State
   const [selectedCollegeDetails, setSelectedCollegeDetails] = useState<any>(null);
   const [showCollegeDrawer, setShowCollegeDrawer] = useState(false);
-  const [collegeDrawerTab, setCollegeDrawerTab] = useState<'info' | 'depts' | 'roster' | 'logs'>('info');
 
   // Interactive Delete College Confirmation Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -98,6 +97,8 @@ export default function SuperAdminDashboard() {
   // Priority 1: 22-Field Comprehensive College Registration Modal State
   const [showAddCollegeModal, setShowAddCollegeModal] = useState(false);
   const [submittingCollege, setSubmittingCollege] = useState(false);
+  const [createdCollegeResult, setCreatedCollegeResult] = useState<any>(null);
+
   const [newCollegeData, setNewCollegeData] = useState({
     name: '',
     collegeCode: '',
@@ -127,11 +128,11 @@ export default function SuperAdminDashboard() {
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [userSearchText, setUserSearchText] = useState('');
 
-  // Support Ticket Modal & Drawer
+  // Support Ticket Modal
   const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
   const [newTicket, setNewTicket] = useState({ collegeCode: '', title: '', description: '', priority: 'Medium' });
 
-  // Leads Modal & Drawer
+  // Leads Modal
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [newLead, setNewLead] = useState({ institutionName: '', contactPerson: '', email: '', phone: '', city: '', state: '', estimatedStudents: 1000 });
 
@@ -246,9 +247,7 @@ export default function SuperAdminDashboard() {
         ? `/super-admin/requests/colleges/${targetDeleteCollege._id}/permanent`
         : `/super-admin/requests/colleges/${targetDeleteCollege._id}`;
       
-      const res = isPermanentDelete
-        ? await api.delete(endpoint)
-        : await api.delete(endpoint);
+      const res = await api.delete(endpoint);
 
       toast.success(res.data.message || 'College deleted successfully');
       setShowDeleteModal(false);
@@ -274,6 +273,8 @@ export default function SuperAdminDashboard() {
       toast.success(res.data.message || 'College registered successfully!');
       
       setShowAddCollegeModal(false);
+      setCreatedCollegeResult(res.data);
+
       setNewCollegeData({
         name: '',
         collegeCode: '',
@@ -311,7 +312,7 @@ export default function SuperAdminDashboard() {
   // SUBTAB RENDERERS (Fully Functional Live DB Pages)
   // =============================================================
 
-  // 1. EXECUTIVE OVERVIEW DASHBOARD (Clickable KPI Cards to Modules)
+  // 1. EXECUTIVE OVERVIEW DASHBOARD
   const renderExecutiveDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -321,7 +322,7 @@ export default function SuperAdminDashboard() {
           { label: 'Faculty & Staff Roster', value: ((stats.totalFaculty ?? 0) + (stats.totalHods ?? 0)).toLocaleString(), detail: 'Cross-Dept Staff', icon: UserCheck, color: 'from-emerald-500/20 to-teal-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', targetSubTab: 'sa_users' },
           { label: 'Monthly Revenue (MRR)', value: stats.monthlyRevenue ?? '$0', detail: 'Live Subscription Billing', icon: CreditCard, color: 'from-amber-500/20 to-yellow-500/10', border: 'border-amber-500/30', text: 'text-amber-400', targetSubTab: 'sa_billing' },
           { label: 'Total System Accounts', value: (stats.totalActiveUsers ?? 1).toLocaleString(), detail: 'Verified Users', icon: Activity, color: 'from-fuchsia-500/20 to-pink-500/10', border: 'border-fuchsia-500/30', text: 'text-fuchsia-400', targetSubTab: 'sa_users' },
-          { label: 'Active Departments', value: stats.totalDepartments ?? 0, detail: 'Across All Tenants', icon: Sliders, color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/30', text: 'text-sa_colleges' },
+          { label: 'Active Departments', value: stats.totalDepartments ?? 0, detail: 'Across All Tenants', icon: Sliders, color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/30', targetSubTab: 'sa_colleges' },
           { label: 'API Gateway Health', value: '100% Operational', detail: 'Avg Latency: 14ms', icon: Server, color: 'from-emerald-500/20 to-green-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', targetSubTab: 'sa_analytics' },
           { label: 'Pending Approvals', value: stats.pendingColleges ?? requests.length, detail: 'Queue Applications', icon: Clock, color: 'from-violet-500/20 to-purple-500/10', border: 'border-violet-500/30', text: 'text-violet-400', targetSubTab: 'sa_approvals' }
         ].map((kpi, idx) => {
@@ -517,6 +518,15 @@ export default function SuperAdminDashboard() {
                       </span>
                     </td>
                     <td className="py-3.5 px-3 text-right space-x-1">
+                      <a
+                        href="/login"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="h-7 px-2.5 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/30 rounded-lg text-[10px] font-bold text-emerald-300 inline-flex items-center gap-1"
+                        title="Open Campus Portal / Login as Principal"
+                      >
+                        <ExternalLink size={11} /> Open Portal
+                      </a>
                       <button
                         onClick={() => handleOpenCollegeDetails(col.collegeCode)}
                         className="h-7 px-2.5 bg-purple-950/30 hover:bg-purple-900/40 border border-purple-900/30 rounded-lg text-[10px] font-bold text-purple-300"
@@ -661,6 +671,45 @@ export default function SuperAdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* College Registration Success Modal with Direct Launch Link */}
+      {createdCollegeResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass-card max-w-md w-full p-6 border border-emerald-500/40 rounded-2xl space-y-4 text-center">
+            <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+              <CheckCircle2 size={32} />
+            </div>
+            <h3 className="text-lg font-black text-white uppercase tracking-wider">Institution Registered & Provisioned!</h3>
+            <p className="text-xs text-text-secondary">
+              {createdCollegeResult.message}
+            </p>
+
+            <div className="p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-xl space-y-2 text-left text-xs font-mono">
+              <p className="text-gray-300">Institution ID: <span className="text-emerald-400 font-bold">{createdCollegeResult.institutionId}</span></p>
+              <p className="text-gray-300">College Code: <span className="text-purple-400 font-bold">{createdCollegeResult.college?.collegeCode}</span></p>
+              <p className="text-gray-300">Principal Email: <span className="text-white font-bold">{createdCollegeResult.principalUser?.email}</span></p>
+              <p className="text-gray-300">Initial Password: <span className="text-amber-400 font-bold">{createdCollegeResult.principalUser?.initialPassword}</span></p>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <a
+                href="/login"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all hover:scale-[1.02]"
+              >
+                <ExternalLink size={16} /> Open Campus Portal / Login as Principal
+              </a>
+              <button
+                onClick={() => setCreatedCollegeResult(null)}
+                className="w-full py-2 bg-dark-surface hover:bg-purple-950/40 text-gray-300 font-bold rounded-xl text-xs"
+              >
+                Close & Return to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       )}
