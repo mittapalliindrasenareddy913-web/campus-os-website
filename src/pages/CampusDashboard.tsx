@@ -300,6 +300,11 @@ export default function CampusDashboard() {
   const [ttFac, setTtFac] = useState('');
   const [ttRoom, setTtRoom] = useState('');
   const ttFileInputRef = useRef<HTMLInputElement>(null);
+  // Cross-department faculty selector states
+  const [showCrossDeptModal, setShowCrossDeptModal] = useState(false);
+  const [crossDeptIndex, setCrossDeptIndex] = useState<number | null>(null);
+  const [crossDeptFilter, setCrossDeptFilter] = useState('');
+  const [allCollegeFaculty, setAllCollegeFaculty] = useState<any[]>([]);
   // HOD Faculty assignments form states
   const [hodSelectedFaculty, setHodSelectedFaculty] = useState<any>(null);
   const [hodNewClassYear, setHodNewClassYear] = useState<number>(1);
@@ -739,7 +744,7 @@ export default function CampusDashboard() {
 
           const statsRes = await api.get('/hod/dashboard-stats');
           setStats(statsRes.data);
-          const [staffRes, subRes, ttRes, leavesRes, marksRes, matRes, studentsRes, noticesRes] = await Promise.all([
+          const [staffRes, subRes, ttRes, leavesRes, marksRes, matRes, studentsRes, noticesRes, allFacultyRes] = await Promise.all([
             api.get('/hod/faculty'),
             api.get('/hod/subjects'),
             api.get('/hod/timetable'),
@@ -747,7 +752,8 @@ export default function CampusDashboard() {
             api.get('/hod/marks'),
             api.get('/hod/materials'),
             api.get('/hod/students'),
-            api.get('/hod/notices')
+            api.get('/hod/notices'),
+            api.get('/hod/faculty/all-departments').catch(() => ({ data: [] }))
           ]);
           setStaff(staffRes.data || []);
           setSubjects(subRes.data || []);
@@ -757,6 +763,7 @@ export default function CampusDashboard() {
           setMaterials(matRes.data || []);
           setStudents(studentsRes.data || []);
           setNotices(noticesRes.data || []);
+          setAllCollegeFaculty(allFacultyRes.data || []);
           // Load today's attendance for HOD monitor
           try {
             const attRes = await api.get('/hod/attendance');
@@ -5769,21 +5776,22 @@ export default function CampusDashboard() {
                                 )}
                               </td>
 
-                              {/* Faculty mapping */}
+                               {/* Faculty mapping */}
                               <td className="p-2">
                                 {isSpecial ? (
                                   <span className="text-text-secondary text-[10px] italic px-2">—</span>
                                 ) : slot.matchedFacultyId && slot.matchedFacultyId !== 'manual-trigger' ? (
                                   (() => {
-                                    const matchedFac = staff.find((member: any) => member._id === slot.matchedFacultyId);
+                                    const matchedFac = staff.concat(allCollegeFaculty).find((member: any) => member._id === slot.matchedFacultyId);
+                                    const isCrossDept = matchedFac && matchedFac.assignedDepartment && matchedFac.assignedDepartment.toUpperCase() !== (user?.assignedDepartment || '').toUpperCase();
                                     return (
-                                      <div className="flex justify-between items-start gap-2 bg-emerald-950/20 border border-emerald-800/40 p-2 rounded-lg text-white">
+                                      <div className={`flex justify-between items-start gap-2 border p-2 rounded-lg text-white ${isCrossDept ? 'bg-sky-950/30 border-sky-500/50' : 'bg-emerald-950/20 border-emerald-800/40'}`}>
                                         <div className="flex flex-col min-w-0">
-                                          <span className="inline-flex items-center text-[9px] font-bold text-emerald-400 gap-1 mb-0.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                            ✓ Auto Matched
+                                          <span className={`inline-flex items-center text-[9px] font-bold gap-1 mb-0.5 ${isCrossDept ? 'text-sky-400' : 'text-emerald-400'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isCrossDept ? 'bg-sky-400' : 'bg-emerald-400'}`} />
+                                            {isCrossDept ? '🌐 Cross Dept Faculty' : '✓ Auto Matched'}
                                           </span>
-                                          <span className="text-xs font-bold text-emerald-300 truncate">{matchedFac ? matchedFac.fullName : slot.facultyName}</span>
+                                          <span className="text-xs font-bold truncate">{matchedFac ? `${matchedFac.fullName} (${matchedFac.assignedDepartment || 'Dept'})` : slot.facultyName}</span>
                                         </div>
                                         <button
                                           type="button"
@@ -5799,120 +5807,55 @@ export default function CampusDashboard() {
                                       </div>
                                     );
                                   })()
-                                ) : (!slot.facultyName || slot.facultyName.trim() === '' || slot.facultyName === '-' || slot.facultyName === '—') ? (
-                                  <div className="flex justify-between items-start gap-2 bg-emerald-950/20 border border-emerald-800/40 p-2 rounded-lg text-white">
-                                    <div className="flex flex-col min-w-0">
-                                      <span className="inline-flex items-center text-[9px] font-bold text-emerald-400 gap-1 mb-0.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                        ✓ Auto Matched
-                                      </span>
-                                      <span className="text-xs font-bold text-emerald-300">—</span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newSlots = [...timetableUploadPreview];
-                                        newSlots[index] = { ...newSlots[index], matchedFacultyId: '', facultyName: 'Select' };
-                                        setTimetableUploadPreview(newSlots);
-                                      }}
-                                      className="text-[10px] text-sky-400 hover:text-sky-300 underline cursor-pointer shrink-0 font-bold"
-                                    >
-                                      Change
-                                    </button>
-                                  </div>
                                 ) : (
-                                  <div className="flex flex-col gap-1.5 p-1 bg-red-950/5 border border-red-950/20 rounded-lg">
-                                    {/* Dropdown row with + button */}
-                                    <div className="flex gap-1">
+                                  /* RED HIGHLIGHT CELL FOR MISSING FACULTY */
+                                  <div className="flex flex-col gap-1.5 p-2 bg-red-950/40 border border-red-500/60 rounded-xl shadow-[0_0_12px_rgba(239,68,68,0.25)] text-white">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-black text-red-400 flex items-center gap-1 uppercase tracking-wider">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                                        ⚠ Faculty Not Found
+                                      </span>
+                                      {slot.facultyName && slot.facultyName !== 'Select' && (
+                                        <span className="text-[10px] text-gray-300 font-bold">Uploaded: &quot;{slot.facultyName}&quot;</span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex flex-col gap-1 mt-1">
+                                      {/* 1. Select Existing Department Faculty */}
                                       <select
-                                        className="flex-1 h-8 bg-dark-bg/60 border border-red-900/50 rounded px-1.5 text-xs text-white"
+                                        className="w-full h-7 bg-dark-bg/80 border border-red-500/40 rounded px-1.5 text-[11px] text-white font-bold"
                                         value={slot.matchedFacultyId || ''}
-                                        onChange={(e) => updateSlot('matchedFacultyId', e.target.value)}
+                                        onChange={(e) => {
+                                          const selected = staff.find((m: any) => m._id === e.target.value);
+                                          const newSlots = [...timetableUploadPreview];
+                                          newSlots[index] = {
+                                            ...newSlots[index],
+                                            matchedFacultyId: e.target.value,
+                                            facultyName: selected ? selected.fullName : 'To Be Assigned'
+                                          };
+                                          setTimetableUploadPreview(newSlots);
+                                        }}
                                       >
-                                        <option value="">Select Faculty *</option>
+                                        <option value="">1. Select Dept Faculty</option>
                                         {staff.map((member: any) => (
                                           <option key={member._id} value={member._id}>
-                                            {member.fullName}
+                                            {member.fullName} ({member.assignedDepartment || 'Dept'})
                                           </option>
                                         ))}
                                       </select>
+
+                                      {/* 2. Other Department Faculty Modal Trigger */}
                                       <button
                                         type="button"
-                                        title="Add new faculty"
-                                        onClick={() => setQuickAddFaculty(prev => ({ ...prev, [index]: { open: true, fullName: slot.facultyName && slot.facultyName !== 'Select' ? slot.facultyName : '', email: '', password: '', saving: false } }))}
-                                        className="w-8 h-8 shrink-0 bg-emerald-950/40 border border-emerald-700/50 text-emerald-400 hover:bg-emerald-900/50 rounded text-base font-bold transition-all"
+                                        onClick={() => {
+                                          setCrossDeptIndex(index);
+                                          setShowCrossDeptModal(true);
+                                        }}
+                                        className="w-full h-7 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-600/40 text-sky-400 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all cursor-pointer"
                                       >
-                                        +
+                                        <span>🌐 2. Other Dept Faculty</span>
                                       </button>
                                     </div>
-                                    {/* Inline quick-add faculty form */}
-                                    {quickAddFaculty[index]?.open && (
-                                      <div className="flex flex-col gap-1.5 mt-1 p-2 bg-emerald-950/20 border border-emerald-800/40 rounded-lg">
-                                        <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wide">➕ Add New Faculty</span>
-                                        <input
-                                          placeholder="Full Name (e.g. Mr. A. Kumar)"
-                                          className="h-7 bg-dark-bg/60 border border-emerald-900/40 rounded px-1.5 text-[10px] text-white"
-                                          value={quickAddFaculty[index]?.fullName || ''}
-                                          onChange={e => setQuickAddFaculty(prev => ({ ...prev, [index]: { ...prev[index], fullName: e.target.value } }))}
-                                        />
-                                        <input
-                                          placeholder="Email (e.g. akumar@college.edu)"
-                                          type="email"
-                                          className="h-7 bg-dark-bg/60 border border-emerald-900/40 rounded px-1.5 text-[10px] text-white"
-                                          value={quickAddFaculty[index]?.email || ''}
-                                          onChange={e => setQuickAddFaculty(prev => ({ ...prev, [index]: { ...prev[index], email: e.target.value } }))}
-                                        />
-                                        <input
-                                          placeholder="Temp Password"
-                                          type="text"
-                                          className="h-7 bg-dark-bg/60 border border-emerald-900/40 rounded px-1.5 text-[10px] text-white"
-                                          value={quickAddFaculty[index]?.password || ''}
-                                          onChange={e => setQuickAddFaculty(prev => ({ ...prev, [index]: { ...prev[index], password: e.target.value } }))}
-                                        />
-                                        <div className="flex gap-1 mt-0.5">
-                                          <button
-                                            type="button"
-                                            disabled={quickAddFaculty[index]?.saving}
-                                            onClick={async () => {
-                                              const qa = quickAddFaculty[index];
-                                              if (!qa?.fullName || !qa?.email || !qa?.password) return;
-                                              setQuickAddFaculty(prev => ({ ...prev, [index]: { ...prev[index], saving: true } }));
-                                              try {
-                                                const res = await api.post('/hod/faculty', {
-                                                  fullName: qa.fullName,
-                                                  email: qa.email,
-                                                  password: qa.password
-                                                });
-                                                const newFac = res.data.user;
-                                                setStaff((prev: any[]) => [...prev, newFac]);
-                                                updateSlot('matchedFacultyId', newFac._id);
-                                                setQuickAddFaculty(prev => { const n = { ...prev }; delete n[index]; return n; });
-                                                toastSuccess(`✅ Faculty "${qa.fullName}" added and selected!`);
-                                              } catch (err: any) {
-                                                toastError(err.response?.data?.message || 'Failed to add faculty.');
-                                                setQuickAddFaculty(prev => ({ ...prev, [index]: { ...prev[index], saving: false } }));
-                                              }
-                                            }}
-                                            className="flex-1 h-7 bg-emerald-700/60 hover:bg-emerald-600/70 text-white text-[10px] font-bold rounded transition-all disabled:opacity-50"
-                                          >
-                                            {quickAddFaculty[index]?.saving ? 'Saving...' : '✓ Save & Select'}
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => setQuickAddFaculty(prev => { const n = { ...prev }; delete n[index]; return n; })}
-                                            className="h-7 px-2 bg-red-950/30 border border-red-900/30 text-red-400 text-[10px] rounded"
-                                          >
-                                            Cancel
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                    <span className="text-[9px] text-red-400 font-bold px-1.5 flex flex-col gap-0.5">
-                                      <span>⚠️ Faculty not found</span>
-                                      {slot.facultyName && slot.facultyName !== 'Select' && (
-                                        <span className="opacity-80">Extracted: &quot;{slot.facultyName}&quot;</span>
-                                      )}
-                                    </span>
                                   </div>
                                 )}
                               </td>
@@ -12830,6 +12773,79 @@ export default function CampusDashboard() {
                 ))}
               </div>
           }
+        </div>
+      )}
+      {/* ── MODAL: CROSS-DEPARTMENT FACULTY SELECTOR ── */}
+      {showCrossDeptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass-card w-full max-w-2xl p-6 rounded-2xl border border-sky-500/40 shadow-2xl flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-sky-900/40 pb-3">
+              <div>
+                <h3 className="font-extrabold text-base text-sky-400 flex items-center gap-2">
+                  <span>🌐 Select Cross-Department Faculty</span>
+                </h3>
+                <p className="text-[11px] text-text-secondary mt-0.5">
+                  Assign faculty from another department (e.g. Mathematics, Physics, Chemistry, MBA, CSE)
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCrossDeptModal(false)}
+                className="text-text-secondary hover:text-white p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Department Pills */}
+            <div className="flex flex-wrap gap-1.5 p-2 bg-dark-bg/60 rounded-xl border border-purple-900/30">
+              {['ALL', 'ECE', 'EEE', 'CSE', 'AIML', 'CIVIL', 'MECH', 'ENGLISH', 'MATHEMATICS', 'PHYSICS', 'CHEMISTRY', 'MBA'].map(dept => (
+                <button
+                  key={dept}
+                  type="button"
+                  onClick={() => setCrossDeptFilter(dept === 'ALL' ? '' : dept)}
+                  className={`px-3 py-1 text-[11px] font-extrabold rounded-lg transition-all ${
+                    (dept === 'ALL' && !crossDeptFilter) || crossDeptFilter === dept
+                      ? 'bg-sky-600 text-white shadow-md'
+                      : 'text-text-secondary hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {dept}
+                </button>
+              ))}
+            </div>
+
+            {/* Faculty Roster List */}
+            <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1.5">
+              {allCollegeFaculty
+                .filter((f: any) => !crossDeptFilter || (f.assignedDepartment || '').toUpperCase().includes(crossDeptFilter.toUpperCase()))
+                .map((f: any) => (
+                  <div
+                    key={f._id}
+                    onClick={() => {
+                      if (crossDeptIndex !== null) {
+                        const newSlots = [...timetableUploadPreview];
+                        newSlots[crossDeptIndex] = {
+                          ...newSlots[crossDeptIndex],
+                          matchedFacultyId: f._id,
+                          facultyName: `${f.fullName} (${f.assignedDepartment || 'Cross-Dept'})`,
+                          isCrossDepartment: true
+                        };
+                        setTimetableUploadPreview(newSlots);
+                        toastSuccess(`✅ Assigned ${f.fullName} (${f.assignedDepartment || 'Cross-Dept'})!`);
+                      }
+                      setShowCrossDeptModal(false);
+                    }}
+                    className="flex justify-between items-center p-3 bg-dark-bg/60 hover:bg-sky-950/40 border border-purple-900/30 hover:border-sky-500/40 rounded-xl cursor-pointer transition-all"
+                  >
+                    <div>
+                      <p className="text-xs font-extrabold text-white">{f.fullName}</p>
+                      <p className="text-[10px] text-sky-400 font-bold mt-0.5">{f.assignedDepartment || 'General'} Department · {f.email}</p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-sky-600 text-white text-[10px] font-bold rounded-lg">Select Faculty</span>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
       )}
         </>

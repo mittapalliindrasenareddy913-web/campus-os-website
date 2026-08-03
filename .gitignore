@@ -1,5 +1,20 @@
+node_modules/
+.env*
+
+# Build & Release Output
+dist/
+dist-ssr/
+build/
+coverage/
+
+# Release Binaries & Keystores
+*.apk
+*.aab
+*.keystore
+*.jks
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,16 +22,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Editor & OS
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

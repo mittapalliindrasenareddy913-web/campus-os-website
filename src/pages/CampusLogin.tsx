@@ -23,7 +23,11 @@ export default function CampusLogin() {
 
   if (!auth) return null;
 
+  const isSuperAdmin = portalType === 'super-admin';
+  const isDetectedSuperAdmin = isSuperAdmin || emailOrEmpId.trim().toLowerCase() === 'indra0408' || emailOrEmpId.trim().toLowerCase() === 'indra0408@campusos.in';
+
   const getPortalTitle = () => {
+    if (isDetectedSuperAdmin) return 'SUPER ADMIN PORTAL';
     switch (portalType) {
       case 'principal': return 'Principal Portal';
       case 'hod': return 'HOD Portal';
@@ -37,10 +41,8 @@ export default function CampusLogin() {
     if (portalType === 'principal' || portalType === 'admin') {
       return 'principal@college.edu';
     }
-    return 'e.g. ECEFAC023 / ECEHOD001';
+    return 'e.g. indra0408 / ECEHOD001';
   };
-
-  const isSuperAdmin = portalType === 'super-admin';
 
   useEffect(() => {
     if (portalType === 'super-admin') {
@@ -53,9 +55,9 @@ export default function CampusLogin() {
     e.preventDefault();
     
     // Auto-fill college code for Super Admin
-    const effectiveCollegeCode = isSuperAdmin ? '473383' : collegeCode;
+    const effectiveCollegeCode = isDetectedSuperAdmin ? 'GLOBAL' : collegeCode;
     
-    if (!effectiveCollegeCode && !isSuperAdmin) {
+    if (!effectiveCollegeCode && !isDetectedSuperAdmin) {
       setError('College code is required.');
       return;
     }
@@ -69,18 +71,17 @@ export default function CampusLogin() {
     setSuccessMsg('');
 
     try {
-      const res = await auth.login(effectiveCollegeCode.toUpperCase(), emailOrEmpId.trim(), password, portalType || 'faculty');
+      const res = await auth.login(effectiveCollegeCode.toUpperCase(), emailOrEmpId.trim(), password, isDetectedSuperAdmin ? 'super-admin' : (portalType || 'faculty'));
       setLoading(false);
 
       if (res.requireFaceAuth && res.tempToken) {
         setTempToken(res.tempToken);
         setRequireFace(true);
       } else if (res.success) {
-        setSuccessMsg('Logged in successfully!');
+        setSuccessMsg('Logged in successfully as Super Admin!');
         if (rememberMe) {
           localStorage.setItem('campus_remember_session', 'true');
         }
-        // Redirect will be handled by App router listening to Auth state
       } else {
         setError(res.error || 'Incorrect credentials.');
       }
@@ -122,7 +123,7 @@ export default function CampusLogin() {
       <div className="w-full max-w-md glass-card glass-glow p-8 relative z-10 space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-black text-white tracking-widest">CAMPUS <span className="text-gradient">OS</span></h1>
-          <h2 className="text-base font-bold text-gray-200 mt-3">{getPortalTitle()}</h2>
+          <h2 className={`text-base font-extrabold mt-3 ${isDetectedSuperAdmin ? 'text-amber-400 uppercase tracking-wider animate-pulse' : 'text-gray-200'}`}>{getPortalTitle()}</h2>
           <p className="text-[11px] text-text-secondary mt-1">Workspace-enforced portal validations</p>
         </div>
 
@@ -142,18 +143,18 @@ export default function CampusLogin() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-2">
-                {portalType === 'principal' || portalType === 'admin' ? 'Official Email / Super Admin Email' : 'Employee ID'}
+                {isDetectedSuperAdmin ? 'Super Admin Username / Email' : (portalType === 'principal' || portalType === 'admin' ? 'Official Email / Super Admin Email' : 'Employee ID')}
               </label>
               <input
                 type="text"
-                placeholder={portalType === 'principal' ? 'principal@college.edu or Super Admin email' : getPlaceholder()}
+                placeholder={isDetectedSuperAdmin ? 'indra0408' : (portalType === 'principal' ? 'principal@college.edu' : getPlaceholder())}
                 className="w-full h-11 bg-dark-bg/60 border border-purple-900/30 rounded-lg px-4 text-xs text-white focus:outline-none focus:border-primary"
                 value={emailOrEmpId}
                 onChange={(e) => setEmailOrEmpId(e.target.value)}
               />
             </div>
 
-            {!isSuperAdmin && (
+            {!isDetectedSuperAdmin && (
               <div>
                 <label className="block text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-2">College Code</label>
                 <input
